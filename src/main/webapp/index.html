@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta content="text/html; charset=UTF-8" http-equiv="content-type" />
+    <title>Home</title>
+</head>
+<body class="lift:content_id=main">
+<div id="main" class="lift:surround?with=default;at=content">
+    <h2>Welcome to where you are!</h2>
+    <p>
+    <div class="lift:comet?type=GeoComet&name=GeoComet">
+    <span id="geopane">
+        <span id="geo"></span>
+        You are here: 
+        <ul>
+            <li>Longitude: <span id="longitude">Waiting...</span></li> 
+            <li>Latitude: <span id="latitude">Waiting...</span>
+            <li>Altitude: <span id="altitude">Waiting...</span>
+        </ul>
+        Close stops: <span id="stops"></span>
+    </span>
+    <!--<span class="lift:helloWorld.howdy">-->
+    <!--Welcome to your Lift app at <span id="time">Time goes here</span>-->
+    <!--</span>-->
+
+</div>
+</div>
+
+<script type="text/javascript" language="JavaScript">
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(function (position) {
+            var url = opx_geo_url(position.coords);
+            if (url) {
+                opx_run_javascript('openadex-geo', url)
+            }
+        });
+    }
+</script>
+</body>
+</html>
