@@ -8,29 +8,27 @@ import net.liftweb.http.js.JsCmds._
 import com.ibm.util.CoordinateConversion
 import java.net.{URLConnection, URI}
 import io.{BufferedSource, Source}
+import code.model.{WalkingDistance, Position}
 
 class GeoComet extends CometActor {
 
-  private var longitude = .0d
-
-  private var latitude = .0d
-  
-  private var altitude = .0d
+  private var position: Option[Position] = None 
 
   private var walkingDistance = 1200
   
   private var hits = 10
   
   private def setPosition(map: Map[String, _]) {
-    longitude = get(map, "longitude")
-    latitude = get(map, "latitude")
-    altitude = get(map, "altitude")
+    position = Some(Position(
+      get(map, "latitude").get,
+      get(map, "longitude").get,
+      get(map, "altitude")))
   }
 
   def get(map: Map[String, _], key: String) = 
     map.get(key) match {
-      case Some(value: Double) => value
-      case _ => -1d
+      case Some(value: Double) => Some(value)
+      case _ => None
     }
 
   override def handleJson(in: Any): JsCmd = in match {
@@ -67,27 +65,14 @@ class GeoComet extends CometActor {
     "#altitude *" #> getAltitude &
     "#stops *" #> <span>Waiting ...</span>
 
-  private def getAltitude = <span>{altitude}</span>
+  private def getLatitude = <span>{position.map(_.latitude).getOrElse(-1d)}</span>
+  
+  private def getLongitude= <span>{position.map(_.longitude).getOrElse(-1d)}</span>
 
-  private def getLatitude = <span>{latitude}</span>
-
-  private def getLongitude = <span>{longitude}</span>
+  private def getAltitude = <span>{position.map(_.altitude).getOrElse(-1d)}</span>
   
   private def computeStops() {
-    val conversion: CoordinateConversion = new CoordinateConversion()
-    val converted = conversion.latLon2UTM(latitude, longitude)
-    val values = converted.split("\\s+").takeRight(2).map(_.toInt)
-    val uri = URI create ("http://api-test.trafikanten.no/Place/GetClosestStopsAdvancedByCoordinates/?coordinates=" +
-      "(X=" + values(0) +
-      ",Y=" + values(1) +
-      ")&proposals=" + hits + 
-      "&walkingDistance=" + walkingDistance +
-      "")
-    val source: BufferedSource = Source.fromURL(uri.toURL)
-    try {
-      source.getLines().foreach(println _)
-    } finally {
-      source.close()
-    }
+    val response = position.map(APIClient.getStops(_, WalkingDistance(walkingDistance), hits)).getOrElse("")
+    println(response)
   }
 }

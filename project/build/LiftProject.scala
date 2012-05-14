@@ -10,6 +10,8 @@ class LiftProject(info: ProjectInfo) extends DefaultWebProject(info) with IdeaPr
   // this line
   // override def scanDirectories = Nil
 
+  val MavenLocal = "Local Maven Repository" at "file://" + Path.userHome + "/.m2/repository"
+  
   lazy val JavaNet = "Java.net Maven2 Repository" at "http://download.java.net/maven/2/"
 
   val SonatypeRep = "Sonatype scala-tools repo" at "https://oss.sonatype.org/content/groups/scala-tools/"
@@ -18,6 +20,8 @@ class LiftProject(info: ProjectInfo) extends DefaultWebProject(info) with IdeaPr
     "net.liftweb" %% "lift-webkit" % liftVersion.value.toString % "compile",
     "net.liftweb" %% "lift-mapper" % liftVersion.value.toString % "compile",
     "org.mortbay.jetty" % "jetty" % "6.1.26" % "test",
+    "io.netty" % "netty" % "3.4.4.Final", 
+    "vkode" % "scala-utils" % "0.1-SNAPSHOT",
     "junit" % "junit" % "4.7" % "test",
     "ch.qos.logback" % "logback-classic" % "0.9.26",
     "org.scala-tools.testing" %% "specs" % "1.6.9" % "test",
