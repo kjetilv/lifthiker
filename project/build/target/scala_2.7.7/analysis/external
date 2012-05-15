@@ -1,7 +1,0 @@
-#External Dependencies
-#Mon May 14 10:17:25 CEST 2012
-/Users/kjetil/Development/git/lifthiker/project/boot/scala-2.7.7/lib/scala-library.jar=LiftProject.scala
-/Library/Java/JavaVirtualMachines/1.6.0_26-b03-383.jdk/Contents/Classes/classes.jar=LiftProject.scala
-/Users/kjetil/Development/git/lifthiker/project/boot/scala-2.7.7/org.scala-tools.sbt/sbt/0.7.7/sbt_2.7.7-0.7.7.jar=LiftProject.scala
-/Users/kjetil/Development/git/lifthiker/project/plugins/target/scala_2.7.7/plugin-classes/IdeaProject.class=LiftProject.scala
-/Users/kjetil/Development/git/lifthiker/project/plugins/target/scala_2.7.7/plugin-classes/IdeaProject$class.class=LiftProject.scala
