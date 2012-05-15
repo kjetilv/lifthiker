@@ -9,8 +9,14 @@ class GoogleMapsClient(key: String) {
 
   def getStartScript(zoom: Int = 14, id: String = "map_canvas") = 
     javascript("""
+      var google_map = 'undefined'
+
+      function zoomTo(lat, lon) {
+        google_map.panTo(new google.maps.LatLng(lat, lon) );
+      }
+
       function initializeMaps(lat, lon) {
-        new google.maps.Map(document.getElementById("%s"), {
+        google_map = new google.maps.Map(document.getElementById("%s"), {
           center: new google.maps.LatLng(lat, lon), 
           zoom: %d,
           mapTypeId: google.maps.MapTypeId.ROADMAP

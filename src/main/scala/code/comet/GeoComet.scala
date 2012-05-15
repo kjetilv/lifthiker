@@ -103,7 +103,13 @@ class GeoComet extends CometActor {
         case Nil => waiting
         case list => 
           <ul>
-            { list.map (stop => <li>{ stop.Name }</li>) } 
+            { list.map (stop => 
+            <li>
+              { stop.Name } 
+              <button onclick={ "zoomTo(" + stop.latitude + ", " + stop.longitude + ")" } type="button">
+                Go to
+              </button>
+            </li>) } 
           </ul>
       }
     }).getOrElse(waiting)

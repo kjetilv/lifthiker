@@ -1,6 +1,13 @@
 *.iml
 *.ipr
 *.db
-*.jar
 out
 .idea
+project/target/
+target/
+project/boot/
+project/plugins/project/
+project/plugins/src_managed/
+project/build/*
+lib_managed/
+*-sources.jar
