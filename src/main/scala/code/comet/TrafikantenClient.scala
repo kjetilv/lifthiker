@@ -1,7 +1,6 @@
 package code.comet
 
 import org.jboss.netty.channel._
-import code.model.{WalkingDistance, Position}
 import org.jboss.netty.bootstrap.ClientBootstrap
 import socket.nio.NioClientSocketChannelFactory
 import java.util.concurrent.Executors
@@ -10,34 +9,49 @@ import java.net.InetSocketAddress
 import org.jboss.netty.handler.codec.http._
 import io.Codec
 import org.jboss.netty.buffer.ChannelBuffer
+import code.model.{Stop, WalkingDistance, Position}
+import net.liftweb.json.JsonAST.{JNothing, JNull, JArray, JValue}
+import net.liftweb.json.{DefaultFormats, JsonParser}
 
-object APIClient extends CascadingActions {
-
-  private val address = new InetSocketAddress("api-test.trafikanten.no", 80)
+class TrafikantenClient(address: InetSocketAddress) extends CascadingActions {
   
   import org.jboss.netty.channel.Channels._
 
   def getStops(position: Position, 
                walkingDistance: WalkingDistance = WalkingDistance(1000),
-               hits: Int = 10): String = {
+               hits: Int = 10): List[Stop] = {
     val future = bootstrap connect address
     val doneFuture = future.awaitUninterruptibly()
     if (!future.isSuccess) {
       throw new APIException("Failed to get stops", future.getCause)
     }
     val channel = doneFuture.getChannel
-    val request = new DefaultHttpRequest(HttpVersion.HTTP_1_1, 
-                                         HttpMethod.GET,  
-      getStopsPath(position, walkingDistance, hits)) withActions (
+    val path = getStopsPath(position, walkingDistance, hits)
+    val request = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, path) withActions (
       _.setHeader(HttpHeaders.Names.HOST, address.getHostName),
       _.setHeader(HttpHeaders.Names.CONNECTION, HttpHeaders.Values.CLOSE))
     val responseFuture = channel write request
     channel.getCloseFuture.awaitUninterruptibly()
     responseFuture.awaitUninterruptibly()
-    handler.getResponse(channel)
+    val resultJson = handler.getResponse(channel)
+    
+    JsonParser parseOpt resultJson match {
+      case Some(array: JArray) => array.children.toList.map(stop(_)).filterNot(_.isEmpty).map(_.get)
+      case Some(value: JValue) => stop(value).map(List(_)).getOrElse(Nil)
+    }
   }
 
-  def getStopsPath(position: Position, walkingDistance: WalkingDistance, hits: Int): String = {
+  private implicit val fmtz = new DefaultFormats {
+    override protected def dateFormatter = new java.text.SimpleDateFormat("EEE MMM dd HH:mm:ss Z yyyy")
+  }
+  
+  private def stop(value: JValue) = value match {
+    case JNull => None
+    case JNothing => None
+    case json => Some(json.extract[Stop])
+  } 
+
+  private def getStopsPath(position: Position, walkingDistance: WalkingDistance, hits: Int): String = {
     "/Place/GetClosestStopsAdvancedByCoordinates/?coordinates=" +
       "(X=" + position.x +
       ",Y=" + position.y +

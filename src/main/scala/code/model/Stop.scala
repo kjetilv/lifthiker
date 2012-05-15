@@ -1,14 +1,14 @@
 package code.model
 
-case class Stop(id: Long,
-                name: String,
-                district: String,
-                `type`: Int,
-                shortName: String,
-                lines: List[Line]) {
+case class Stop(ID: Int,
+                Name: String,
+                District: String,
+                Type: Int,
+                ShortName: String,
+                Lines: List[Line]) {
 
 }
 
-case class Line(lineId: Long,
-                lineName: String,
-                transportation: Long)
+case class Line(LineID: Int,
+                LineName: String,
+                Transportation: Int)

@@ -5,36 +5,31 @@
     <title>Home</title>
 </head>
 <body class="lift:content_id=main">
+
 <div id="main" class="lift:surround?with=default;at=content">
+
     <h2>Welcome to where you are!</h2>
     <p>
     <div class="lift:comet?type=GeoComet&name=GeoComet">
+    <div id="googlemaps-init"></div>
+    <div id="googlemaps-create"></div>
     <span id="geopane">
         <span id="geo"></span>
         You are here: 
         <ul>
-            <li>Longitude: <span id="longitude">Waiting...</span></li> 
-            <li>Latitude: <span id="latitude">Waiting...</span>
-            <li>Altitude: <span id="altitude">Waiting...</span>
+            <li>Latitude: <span id="latitude">Loading...</span>
+            <li>Longitude: <span id="longitude">Loading...</span></li>
+            <li>Altitude: <span id="altitude">Loading...</span>
         </ul>
-        Close stops: <span id="stops"></span>
+        <label id="walking-label" for="walking">Walking distance (meters)</label>: <input id="walking" width="20"/>
+        <p>
+            Close stops: <span id="stops">Loading...</span>
+        </p>
+        <p>
+            <div id="googlemaps-canvas" style="width:400px;height:320px"></div>
+        </p>
     </span>
-    <!--<span class="lift:helloWorld.howdy">-->
-    <!--Welcome to your Lift app at <span id="time">Time goes here</span>-->
-    <!--</span>-->
-
 </div>
 </div>
-
-<script type="text/javascript" language="JavaScript">
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(function (position) {
-            var url = opx_geo_url(position.coords);
-            if (url) {
-                opx_run_javascript('openadex-geo', url)
-            }
-        });
-    }
-</script>
 </body>
 </html>
