@@ -1,5 +1,24 @@
 package code.model
 
+import org.joda.time.format.DateTimeFormat
+import org.joda.time.{DateTimeZone, DateTime, ReadableInstant}
+
+object Conversions {
+
+  private val argumentPattern = DateTimeFormat forPattern "ddMMyyyyHHmm"
+
+  private val DateRegexp = """Date\((\d+)\+(\d+)\)""".r
+  
+  private val timeZone = DateTimeZone.forID("Europe/Oslo")
+
+  def toArgument(date: ReadableInstant) = argumentPattern print date
+  
+  def fromValue(string: String) = { 
+    val DateRegexp(epoch, _) = string
+    new DateTime(epoch.toLong).withZone(timeZone)
+  }
+}
+
 case class Stop(ID: Int,
                 Name: String,
                 District: String,
@@ -22,4 +41,11 @@ case class Stop(ID: Int,
 
 case class Line(LineID: Int,
                 LineName: String,
-                Transportation: Int)
+                Transportation: Int) {
+  
+  val mode = Transportation match {
+    case 7 => "Trikk"
+    case 2 => "Buss"
+    case x => x.toString
+  }
+}

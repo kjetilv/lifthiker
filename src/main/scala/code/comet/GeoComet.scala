@@ -3,18 +3,18 @@ package code.comet
 import net.liftweb.http.js.JsCmd
 import net.liftweb.util.JsonCmd
 import net.liftweb.http.js.JE.{JsRaw, AnonFunc, Call, JsVar}
-import net.liftweb.http.CometActor
 import net.liftweb.http.js.JsCmds._
 import java.net.InetSocketAddress
-import code.model.{Stop, WalkingDistance, Position}
+import code.model.{WalkingDistance, Position}
+import net.liftweb.http.{SHtml, CometActor}
 
 class GeoComet extends CometActor {
 
   private var position: Option[Position] = None
 
-  private var walkingDistance = 1200
+  private var walkingDistance = WalkingDistance(500)
 
-  private var hits = 10
+  private val hits = 5
 
   private val address = new InetSocketAddress(System getProperty "trafikantenapi", 80)
 
@@ -52,9 +52,14 @@ class GeoComet extends CometActor {
     "#stops *" #> waiting &
     "#map *" #> getMap &
     "#googlemaps-init *" #> googleMapsClient.getInitialScript &
-    "#googlemaps-create *" #> googleMapsClient.getStartScript() &
-    "#googlemaps-canvas *" #> position.map(googleMapsClient.getCanvasScript(_, "map_canvas")).getOrElse(waiting)
+    "#googlemaps-create *" #> googleMapsClient.getStartScript(zoom = 16) &
+    "#googlemaps-canvas *" #> position.map(googleMapsClient.getCanvasScript(_, "map_canvas")).getOrElse(waiting) &
+    "#walking *" #> SHtml.text("100", (string) => { setWalkingDistance(string.toInt) }) 
 
+  private def setWalkingDistance(dist: Int) {
+    walkingDistance = WalkingDistance(dist)
+  }
+  
   private def setPosition(map: Map[String, _]) {
     position = Some(Position(
       getArg(map, "latitude").get,
@@ -98,17 +103,25 @@ class GeoComet extends CometActor {
 
   private def computeStops() = {
     position.map(pos => { 
-      val stopList = client.getStops(pos, WalkingDistance(walkingDistance), hits)
+      val stopList = client.getStops(pos, walkingDistance, hits)
       stopList match {
         case Nil => waiting
         case list => 
           <ul>
             { list.map (stop => 
             <li>
-              { stop.Name } 
+              { stop.Name } ({ stop.ID })
               <button onclick={ "zoomTo(" + stop.latitude + ", " + stop.longitude + ")" } type="button">
                 Go to
               </button>
+              <ul>
+                { stop.Lines.filter(_.LineID < 50).map(line => { <li>{ 
+                  <span>{ line.mode}</span>
+                  <span>&nbsp;</span>
+                  <span>{ line.LineName }</span>
+                }</li>}) 
+                }
+              </ul>
             </li>) } 
           </ul>
       }
