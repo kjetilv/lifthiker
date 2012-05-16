@@ -1,22 +1,14 @@
 var google_map = 0;
 
-function get_map() {
+function zoomTo(lat, lon, z) {
     if (google_map == 0) {
-        throw MapNotInitialized;
-    }
-    return google_map;
-}
-
-function zoomTo(lat, lon) {
-  get_map().panTo(new google.maps.LatLng(lat, lon));
-}
-
-function initializeMaps(lat, lon, z) {
-    if (google_map == 0) {
-        google_map = new google.maps.Map(document.getElementById("%s"), {
-            center: new google.maps.LatLng(lat, lon), 
-            zoom: z,
-            mapTypeId: google.maps.MapTypeId.ROADMAP
+        var zoom_value = typeof(z) == 'undefined' ? 16 : z;
+        google_map = new google.maps.Map(document.getElementById('map_canvas'), {
+          center: new google.maps.LatLng(lat, lon), 
+          zoom: zoom_value,
+          mapTypeId: google.maps.MapTypeId.ROADMAP
         });
-    } 
+    } else {
+        google_map.panTo(new google.maps.LatLng(lat, lon));
+    }
 }

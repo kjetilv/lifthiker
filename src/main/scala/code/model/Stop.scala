@@ -19,9 +19,7 @@ object Conversions {
   }
 }
 
-case class Stops(position: Position,
-                 stops: List[Stop],
-                 walkingDistance: WalkingDistance) {
+case class Stops(position: Position, stops: List[Stop], walkingDistance: WalkingDistance) {
   
   val hits = stops.size
   
