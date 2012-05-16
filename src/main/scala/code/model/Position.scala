@@ -13,4 +13,6 @@ case class Position(latitude: Double, longitude: Double, altitude: Option[Double
   val x = coords._1
   
   val y = coords._2
+  
+  def closeTo(position: Position) = true
 }

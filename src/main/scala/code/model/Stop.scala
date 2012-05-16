@@ -19,6 +19,24 @@ object Conversions {
   }
 }
 
+case class Stops(position: Position,
+                 stops: List[Stop],
+                 walkingDistance: WalkingDistance) {
+  
+  val hits = stops.size
+  
+  def scaledTo(hits: Int, distance: WalkingDistance) = 
+    Stops(
+      position, 
+      stops take hits filter (_.WalkingDistance < walkingDistance.meters), 
+      distance
+    )
+  
+  def farFrom(position: Position) = !closeTo(position)
+  
+  def closeTo(position: Position) = this.position closeTo position
+}
+
 case class Stop(ID: Int,
                 Name: String,
                 District: String,
@@ -26,6 +44,7 @@ case class Stop(ID: Int,
                 X: Int,
                 Y: Int,
                 ShortName: String,
+                WalkingDistance: Int, 
                 Lines: List[Line]) {
 
   private val conversion = new com.ibm.util.CoordinateConversion

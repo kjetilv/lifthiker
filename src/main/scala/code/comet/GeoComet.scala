@@ -6,7 +6,7 @@ import net.liftweb.http.js.JE.{JsRaw, AnonFunc, Call, JsVar}
 import net.liftweb.http.js.JsCmds._
 import java.net.InetSocketAddress
 import code.model.{WalkingDistance, Position}
-import net.liftweb.http.{SHtml, CometActor}
+import net.liftweb.http.{S, SHtml, CometActor}
 
 class GeoComet extends CometActor {
 
@@ -14,7 +14,7 @@ class GeoComet extends CometActor {
 
   private var walkingDistance = WalkingDistance(500)
 
-  private val hits = 5
+  private var stopCount = 5
 
   private val address = new InetSocketAddress(System getProperty "trafikantenapi", 80)
 
@@ -22,6 +22,8 @@ class GeoComet extends CometActor {
 
   private val client = new TrafikantenClient(address)
 
+  private var mapDrawn = false
+  
   override def handleJson(in: Any): JsCmd = in match {
     case JsonCmd("updatePosition", _, map: Map[String, Map[String, _]], _) =>
       setPosition(map("coords"))
@@ -34,13 +36,28 @@ class GeoComet extends CometActor {
             SetHtml("latitude", getLatitude),
             CmdPair(
               SetHtml("altitude", getAltitude),
-              SetHtml("googlemaps-canvas", googleMapsClient.getCanvasScript(position.get, "map_canvas"))
+              mapUpdate()
             )
           )
         )
       )
     case _ =>
       println("Unsupported JSON call: " + in)
+  }
+
+  def mapUpdate(): JsCmd = {
+    if (position.isDefined) {
+      if (mapDrawn) {
+        Call("zoomTo", JsRaw(position.get.latitude.toString), JsRaw(position.get.longitude.toString))
+      } else {
+//        googleMapsClient.getCanvasCall(position.get, "map_canvas")
+        try 
+          SetHtml("googlemaps-canvas", googleMapsClient.getCanvasScript(position.get, "map_canvas"))
+        finally mapDrawn = true
+      }
+    } else {
+      Noop
+    }
   }
 
   private val waiting = <span>Waiting ...</span>
@@ -52,12 +69,33 @@ class GeoComet extends CometActor {
     "#stops *" #> waiting &
     "#map *" #> getMap &
     "#googlemaps-init *" #> googleMapsClient.getInitialScript &
-    "#googlemaps-create *" #> googleMapsClient.getStartScript(zoom = 16) &
-    "#googlemaps-canvas *" #> position.map(googleMapsClient.getCanvasScript(_, "map_canvas")).getOrElse(waiting) &
-    "#walking *" #> SHtml.text("100", (string) => { setWalkingDistance(string.toInt) }) 
+    "#googlemaps-create *" #> googleMapsClient.getStartScript() &
+    "#googlemaps-canvas *" #> position.map(googleMapsClient.getCanvasScript(_, "map_canvas", zoom = 16)).getOrElse(waiting) &
+    "#walking" #> SHtml.ajaxText(walkingDistance.meters.toString, setWalkingDistance(_)) & 
+    "#stopcount" #> SHtml.ajaxText(stopCount.toString, setStopCount(_)) 
 
-  private def setWalkingDistance(dist: Int) {
-    walkingDistance = WalkingDistance(dist)
+  private def setStopCount(dist: String): JsCmd = {
+    try {
+      stopCount = dist.toInt
+      CmdPair(
+        SetHtml("stops", computeStops()),
+        mapUpdate()
+      )
+    } catch {
+      case e => S.notice("Bad count")
+    }
+  }
+  
+  private def setWalkingDistance(dist: String): JsCmd = {
+    try {
+      walkingDistance = WalkingDistance(dist.toInt)
+      CmdPair(
+        SetHtml("stops", computeStops()),
+        mapUpdate()
+      )
+    } catch {
+      case e => S.notice("Bad distance")
+    }
   }
   
   private def setPosition(map: Map[String, _]) {
@@ -103,7 +141,7 @@ class GeoComet extends CometActor {
 
   private def computeStops() = {
     position.map(pos => { 
-      val stopList = client.getStops(pos, walkingDistance, hits)
+      val stopList = client.getStops(pos, walkingDistance, stopCount)
       stopList match {
         case Nil => waiting
         case list => 

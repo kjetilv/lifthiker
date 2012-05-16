@@ -8,6 +8,6 @@ target/
 project/boot/
 project/plugins/project/
 project/plugins/src_managed/
-project/build/*
+project/build/target/
 lib_managed/
 *-sources.jar
