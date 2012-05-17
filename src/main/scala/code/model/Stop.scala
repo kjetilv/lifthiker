@@ -20,7 +20,7 @@ object Conversions {
   }
 }
 
-case class Stops(position: Position, stops: List[Stop], walkingDistance: WalkingDistance) {
+case class Stops(position: Position, stops: List[Stop], walkingDistance: Option[WalkingDistance] = None) {
   
   def forRoute(routeBox: Box[Int]): Stops = {
     routeBox match {
@@ -37,17 +37,21 @@ case class Stops(position: Position, stops: List[Stop], walkingDistance: Walking
   
   val hits = stops.size
   
-  def scaledTo(hits: Int, distance: WalkingDistance) = 
-    Stops(position, 
-      stops sortBy (_.WalkingDistance) take hits filter withinDistance, 
-      distance
-    )
-
-  def withinDistance: (Stop) => Boolean = _.WalkingDistance < walkingDistance.meters
+  def scaledTo(hits: Option[Int], distance: Option[WalkingDistance]) = 
+    Stops(position, qualifyingStops(hits, distance), distance)
 
   def farFrom(position: Position) = !closeTo(position)
   
   def closeTo(position: Position) = this.position closeTo position
+
+  private def qualifyingStops(hits: Option[Int], distance: Option[WalkingDistance]): List[Stop] = {
+    val sorted = stops sortBy (_.WalkingDistance)
+    val pruned = hits.map(sorted take _) getOrElse sorted
+    distance.map(pruned filter withinDistance(_)) getOrElse pruned
+  }
+
+ private def withinDistance(distance: WalkingDistance): (Stop) => Boolean = 
+    (stop: Stop) => WalkingDistance(stop.WalkingDistance) lessThan distance
 }
 
 case class Stop(ID: Int,

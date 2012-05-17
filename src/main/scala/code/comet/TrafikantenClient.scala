@@ -12,7 +12,7 @@ import org.jboss.netty.buffer.ChannelBuffer
 import net.liftweb.json.JsonAST.{JNothing, JNull, JArray, JValue}
 import net.liftweb.json.{DefaultFormats, JsonParser}
 import code.model.{Stops, Stop, WalkingDistance, Position}
-import net.liftweb.common.{Box, Empty}
+import net.liftweb.common.{Full, Box, Empty}
 
 class TrafikantenClient(address: InetSocketAddress) extends CascadingActions {
   
@@ -21,19 +21,22 @@ class TrafikantenClient(address: InetSocketAddress) extends CascadingActions {
   private var stops: Option[Stops] = None 
   
   def getStops(position: Position, 
-               walkingDistance: WalkingDistance = WalkingDistance(1000),
-               hits: Int = 10,
+               walkingDistance: Box[WalkingDistance] = Full(WalkingDistance(1000)),
+               hits: Box[Int] = Full(10),
                route: Box[Int] = Empty): Stops = {
-    if (stops.isEmpty || 
-      stops.get.walkingDistance.times(10).lessThan(walkingDistance) || 
-      stops.get.farFrom(position)) {
-      val stopList = retrieveStops(position, walkingDistance.times(10), hits * 10)
+    if (stops.isEmpty || longerDistance(walkingDistance) || farFrom(position)) {
+      val stopList = retrieveStops(position, walkingDistance.map(_.times(10)), hits.map(_ * 10))
       stops = Some(Stops(position, stopList, walkingDistance))
     }
     stops.get.forRoute(route).scaledTo(hits, walkingDistance)
   }
 
-  private def retrieveStops(position: Position, walkingDistance: WalkingDistance, hits: Int): List[Stop] = {
+  def farFrom(position: Position) = stops.get.farFrom(position)
+
+  def longerDistance(walkingDistance: Box[WalkingDistance]) =
+    walkingDistance.map(stops.get.walkingDistance.get.times(10).lessThan(_)).getOrElse(false)
+
+  private def retrieveStops(position: Position, walkingDistance: Option[WalkingDistance], hits: Option[Int]): List[Stop] = {
     val future = bootstrap connect address
     val doneFuture = future.awaitUninterruptibly()
     if (!future.isSuccess) {
@@ -67,11 +70,11 @@ class TrafikantenClient(address: InetSocketAddress) extends CascadingActions {
     case json => Some(json.extract[Stop])
   } 
 
-  private def getStopsPath(position: Position, walkingDistance: WalkingDistance, hits: Int): String = 
+  private def getStopsPath(position: Position, walkingDistance: Option[WalkingDistance], hits: Option[Int]): String = 
     "/Place/GetClosestStopsAdvancedByCoordinates/" +
       "?coordinates=(X=" + position.x + ",Y=" + position.y + ")" +
-      "&proposals=" + hits +
-      "&walkingDistance=" + walkingDistance.meters
+      hits.map("&proposals=" + _).getOrElse("") +
+      walkingDistance.map("&walkingDistance=" + _.meters).getOrElse("")
 
   private val bootstrap = 
     new ClientBootstrap(new NioClientSocketChannelFactory(

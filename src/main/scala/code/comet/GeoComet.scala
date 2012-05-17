@@ -5,7 +5,7 @@ import net.liftweb.util.JsonCmd
 import net.liftweb.http.js.JE.{JsRaw, AnonFunc, Call, JsVar}
 import net.liftweb.http.js.JsCmds._
 import java.net.InetSocketAddress
-import net.liftweb.http.{SessionVar, S, SHtml, CometActor}
+import net.liftweb.http.{SessionVar, SHtml, CometActor}
 import net.liftweb.common.{Full, Empty, Box}
 import code.model.{Stops, WalkingDistance, Position}
 
@@ -15,9 +15,9 @@ class GeoComet extends CometActor {
 
   private object position extends SessionVar[Box[Position]](Empty)
 
-  private object walkingDistance extends SessionVar[WalkingDistance](WalkingDistance(500))
+  private object walkingDistance extends SessionVar[Box[WalkingDistance]](Full(WalkingDistance(500)))
 
-  private object stopCount extends SessionVar[Int](5)
+  private object stopCount extends SessionVar[Box[Int]](Full(5))
 
   private val address = new InetSocketAddress(System getProperty "trafikantenapi", 80)
 
@@ -62,12 +62,18 @@ class GeoComet extends CometActor {
     "#map *" #> getMap &
     "#googlemaps-init *" #> googleMapsClient.getGoogleAPIScript &
     "#googlemaps-create *" #> googleMapsClient.getStartScript &
-    "#walking" #> SHtml.ajaxText(walkingDistance.meters.toString, setWalkingDistance(_)) &
-    "#route" #> SHtml.ajaxText(route.get match {
+    "#walking" #> SHtml.ajaxText(walkingDistance.is match {
+      case Full(distance) => distance.meters.toString
       case Empty => ""
+    }, setWalkingDistance(_)) &
+    "#route" #> SHtml.ajaxText(route.is match {
       case Full(route) => route.toString
+      case Empty => ""
     }, setRoute(_)) &
-    "#stopcount" #> SHtml.ajaxText(stopCount.is.toString, setStopCount(_))
+    "#stopcount" #> SHtml.ajaxText(stopCount.is match {
+      case Full(count) => count.toString
+      case Empty => ""
+    }, setStopCount(_))
 
   private def setRoute(value: String): JsCmd = {
     try {
@@ -84,9 +90,9 @@ class GeoComet extends CometActor {
 
   private def setStopCount(value: String): JsCmd = {
     try {
-      stopCount.set(value.toInt)
+      stopCount.set(Full(value.toInt))
     } catch {
-      case e =>
+      case e => stopCount.set(Empty)
     }
     CmdPair(
       SetHtml("stops", computeStops()),
@@ -96,9 +102,9 @@ class GeoComet extends CometActor {
 
   private def setWalkingDistance(dist: String): JsCmd = {
     try {
-      walkingDistance.set(WalkingDistance(dist.toInt))
+      walkingDistance.set(Full(WalkingDistance(dist.toInt)))
     } catch {
-      case e => S.notice("Bad distance")
+      case e => walkingDistance.set(Empty)
     }
     CmdPair(
       SetHtml("stops", computeStops()),
@@ -131,7 +137,7 @@ class GeoComet extends CometActor {
   }
 
   private def getMap =
-    position.map(p => <iframe width="425"
+    position.map(p => <iframe width="750"
                               height="350"
                               frameborder="0" scrolling="no" marginheight="0" marginwidth="0"
                               src={ googleMapsClient getURL p }/>).getOrElse(<span>Waiting...</span>)
@@ -146,16 +152,19 @@ class GeoComet extends CometActor {
 
   private def computeStops() =
     position.is match {
-      case Empty => waiting
       case Full(pos: Position) =>
-        client.getStops(pos, walkingDistance, stopCount, route) match {
+        client.getStops(pos, walkingDistance.is, stopCount, route) match {
           case Stops(_, Nil, _) => waiting
           case Stops(_, stops, _) =>
             <ul>
               { stops.map (stop =>
               <li>
                 { stop.Name }
-                <button onclick={ "zoomTo(" + stop.latitude + ", " + stop.longitude + ")" } type="button">
+                <button onclick={ 
+                        val lat = stop.latitude
+                        val lon = stop.longitude
+                        "zoomTo(" + lat + ", " + lon + "); addMarkerOn(" + lat + ", " + lon + ")" 
+                        } type="button">
                   Go to
                 </button>
                 <ul>
@@ -170,5 +179,6 @@ class GeoComet extends CometActor {
             </ul>
           case _ => waiting
         }
+      case Empty => waiting
     }
 }
