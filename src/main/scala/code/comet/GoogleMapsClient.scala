@@ -27,46 +27,46 @@ function zoomTo(lat, lon, z) {
     }
 }
 
-function addMarkerOn(lat, lon) {
+function addMarkerOn(lat, lon, id) {
     if (google_map != 0) {
-        var index = indexOf(lat, lon);
-        if (index > 0) {
-            for (var i = 0; i < markers.length; i++) {
-                markers[i].setAnimation(i == index ? google.maps.Animation.BOUNCE : null);
-            }
-        } else {
+        var index = indexOf(id);
+        if (index < 0) {
             for (var j = 0; j < markers.length; j++) {
-                markers[j].setAnimation(null);
+                markers[j].m.setAnimation(null);
             }
-            markers.push(new google.maps.Marker({
-                position: new google.maps.LatLng(lat, lon),
-                animation: google.maps.Animation.BOUNCE,
-                map: google_map
-            }))
+            markers.push({
+                id: id,
+                m: new google.maps.Marker({
+                    position: new google.maps.LatLng(lat, lon),
+                    animation: google.maps.Animation.BOUNCE,
+                    raiseOnDrag: false,
+                    title: id.toString(),
+                    map: google_map
+                })
+            })
+        } else {
+            for (var i = 0; i < markers.length; i++) {
+                markers[i].m.setAnimation(i == index ? google.maps.Animation.BOUNCE : null);
+            }
         }
     }
 }
 
-function removeMarker(lat, lon) {
-    var index = indexOf(lat, lon);
-    markers[index].setMap(null);
+function removeMarker(id) {
+    var index = indexOf(id);
+    markers[index].m.setMap(null);
     markers.splice(index, index);
 }
 
-function indexOf(lat, lon) {
+function indexOf(id) {
     for (var i = 0; i < markers.length; i++) {
-        var position = markers[i].getPosition();
-        if (aboutSame(lat, position.lat()) && 
-            aboutSame(lon, position.lon())) {
+        if (markers[i].id == id) {  
             return i;
         }
     }
     return -1;
 }
-
-function aboutSame(one, two) {
-    return Math.abs(one / two - 1) < 0.000001;
-}               """)
+               """)
   
   def getCanvasCall(position: Position, id: String, zoom: Int = 16) = 
     Call("zoomTo", JsRaw(position.latitude.toString), JsRaw(position.longitude.toString))

@@ -163,7 +163,7 @@ class GeoComet extends CometActor {
                 <button onclick={ 
                         val lat = stop.latitude
                         val lon = stop.longitude
-                        "zoomTo(" + lat + ", " + lon + "); addMarkerOn(" + lat + ", " + lon + ",'" + stop.Name + "')" 
+                        "zoomTo(" + lat + ", " + lon + "); addMarkerOn(" + lat + ", " + lon + "," + stop.ID + ")" 
                         } type="button">
                   Go to
                 </button>
