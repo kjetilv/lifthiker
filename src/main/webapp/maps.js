@@ -15,7 +15,7 @@ function zoomTo(lat, lon, z) {
     }
 }
 
-function addMarkerOn(lat, lon) {
+function addMarkerOn(lat, lon, name) {
     if (google_map != 0) {
         var index = indexOf(lat, lon);
         if (index > 0) {
@@ -29,6 +29,8 @@ function addMarkerOn(lat, lon) {
             markers.push(new google.maps.Marker({
                 position: new google.maps.LatLng(lat, lon),
                 animation: google.maps.Animation.BOUNCE,
+                raiseOnDrag: false,
+                title: name,
                 map: google_map
             }))
         }
@@ -43,7 +45,9 @@ function removeMarker(lat, lon) {
 
 function indexOf(lat, lon) {
     for (var i = 0; i < markers.length; i++) {
-        if (aboutSame(lat, markers[i].lat) && aboutSame(lon, markers[i].lon)) {
+        var position = markers[i].getPosition();
+        if (aboutSame(lat, position.lat()) && 
+            aboutSame(lon, position.lon())) {
             return i;
         }
     }
@@ -51,5 +55,5 @@ function indexOf(lat, lon) {
 }
 
 function aboutSame(one, two) {
-    return Math.abs(one / two) - 1 < 0.0001;
+    return Math.abs(one / two - 1) < 0.000001;
 }

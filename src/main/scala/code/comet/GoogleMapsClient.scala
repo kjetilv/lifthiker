@@ -55,7 +55,9 @@ function removeMarker(lat, lon) {
 
 function indexOf(lat, lon) {
     for (var i = 0; i < markers.length; i++) {
-        if (aboutSame(lat, markers[i].lat) && aboutSame(lon, markers[i].lon)) {
+        var position = markers[i].getPosition();
+        if (aboutSame(lat, position.lat()) && 
+            aboutSame(lon, position.lon())) {
             return i;
         }
     }
@@ -63,7 +65,7 @@ function indexOf(lat, lon) {
 }
 
 function aboutSame(one, two) {
-    return Math.abs(one / two) - 1 < 0.0001;
+    return Math.abs(one / two - 1) < 0.000001;
 }               """)
   
   def getCanvasCall(position: Position, id: String, zoom: Int = 16) = 

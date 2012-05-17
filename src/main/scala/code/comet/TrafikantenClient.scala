@@ -11,8 +11,8 @@ import io.Codec
 import org.jboss.netty.buffer.ChannelBuffer
 import net.liftweb.json.JsonAST.{JNothing, JNull, JArray, JValue}
 import net.liftweb.json.{DefaultFormats, JsonParser}
-import code.model.{Stops, Stop, WalkingDistance, Position}
 import net.liftweb.common.{Full, Box, Empty}
+import code.model._
 
 class TrafikantenClient(address: InetSocketAddress) extends CascadingActions {
   
@@ -57,8 +57,16 @@ class TrafikantenClient(address: InetSocketAddress) extends CascadingActions {
       case Some(value: JValue) => stop(value).map(List(_)).getOrElse(Nil)
       case somethingElse => Nil
     }
-    stopList.sortBy(_.WalkingDistance)
+    stopList.map(relevantStop(_)).filterNot(invalid(_)).sortBy(_.WalkingDistance)
   }
+  
+  private def relevantStop(stop: Stop): Stop = {
+    val relevantLines = Option(stop.Lines).map(_.filter(_.LineID < 100))
+    stop.copy(Lines = relevantLines.getOrElse(Nil))
+  }
+  
+  private def invalid(stop: Stop) = 
+    Option(stop.Lines) map (_.isEmpty) getOrElse true || !stop.Lines.contains((_:Line).LineID < 100)
 
   private implicit val fmtz = new DefaultFormats {
     override protected def dateFormatter = new java.text.SimpleDateFormat("EEE MMM dd HH:mm:ss Z yyyy")
