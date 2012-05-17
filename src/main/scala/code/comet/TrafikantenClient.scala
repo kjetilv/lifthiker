@@ -12,6 +12,7 @@ import org.jboss.netty.buffer.ChannelBuffer
 import net.liftweb.json.JsonAST.{JNothing, JNull, JArray, JValue}
 import net.liftweb.json.{DefaultFormats, JsonParser}
 import code.model.{Stops, Stop, WalkingDistance, Position}
+import net.liftweb.common.{Box, Empty}
 
 class TrafikantenClient(address: InetSocketAddress) extends CascadingActions {
   
@@ -21,14 +22,15 @@ class TrafikantenClient(address: InetSocketAddress) extends CascadingActions {
   
   def getStops(position: Position, 
                walkingDistance: WalkingDistance = WalkingDistance(1000),
-               hits: Int = 10): List[Stop] = {
+               hits: Int = 10,
+               route: Box[Int] = Empty): Stops = {
     if (stops.isEmpty || 
       stops.get.walkingDistance.times(10).lessThan(walkingDistance) || 
       stops.get.farFrom(position)) {
       val stopList = retrieveStops(position, walkingDistance.times(10), hits * 10)
       stops = Some(Stops(position, stopList, walkingDistance))
     }
-    stops.get.scaledTo(hits, walkingDistance).stops
+    stops.get.forRoute(route).scaledTo(hits, walkingDistance)
   }
 
   private def retrieveStops(position: Position, walkingDistance: WalkingDistance, hits: Int): List[Stop] = {

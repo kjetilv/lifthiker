@@ -2,6 +2,7 @@ package code.model
 
 import org.joda.time.format.DateTimeFormat
 import org.joda.time.{DateTimeZone, DateTime, ReadableInstant}
+import net.liftweb.common.{Full, Box, Empty}
 
 object Conversions {
 
@@ -21,15 +22,29 @@ object Conversions {
 
 case class Stops(position: Position, stops: List[Stop], walkingDistance: WalkingDistance) {
   
+  def forRoute(routeBox: Box[Int]): Stops = {
+    routeBox match {
+      case Full(route) => Stops(position, stops map withLinesFor(route) filter (hasLines), walkingDistance)
+      case Empty => this
+    }
+  }
+
+  private def withLinesFor(route: Int) = (stop: Stop) => stop.copy(Lines = stop.Lines filter lineFor(route)) 
+
+  private def lineFor(route: Int) = (line: Line) => line.LineID == route
+  
+  private def hasLines = (stop: Stop) => !stop.Lines.isEmpty
+  
   val hits = stops.size
   
   def scaledTo(hits: Int, distance: WalkingDistance) = 
-    Stops(
-      position, 
-      stops take hits filter (_.WalkingDistance < walkingDistance.meters), 
+    Stops(position, 
+      stops sortBy (_.WalkingDistance) take hits filter withinDistance, 
       distance
     )
-  
+
+  def withinDistance: (Stop) => Boolean = _.WalkingDistance < walkingDistance.meters
+
   def farFrom(position: Position) = !closeTo(position)
   
   def closeTo(position: Position) = this.position closeTo position
