@@ -16,25 +16,21 @@
 
 package code.model
 
-case class Stop(ID: Int,
-                Name: String,
-                District: String,
-                Type: Int,
-                X: Int,
-                Y: Int,
-                ShortName: String,
-                WalkingDistance: Int, 
-                Lines: List[Line]) {
+import org.joda.time.format.DateTimeFormat
+import org.joda.time.{DateTime, ReadableInstant, DateTimeZone}
 
-  private val conversion = new com.ibm.util.CoordinateConversion
-  
-  private val latLon = {
-    conversion.utm2LatLon("32 V " + X + " " + Y)
-  } 
-  
-  val latitude = latLon(0)
-  
-  val longitude = latLon(1)
+object Conversions {
+
+  private val argumentPattern = DateTimeFormat forPattern "ddMMyyyyHHmm"
+
+  private val DateRegexp = """Date\((\d+)\+(\d+)\)""".r
+
+  private val timeZone = DateTimeZone.forID("Europe/Oslo")
+
+  def toArgument(date: ReadableInstant) = argumentPattern print date
+
+  def fromValue(string: String) = {
+    val DateRegexp(epoch, _) = string
+    new DateTime(epoch.toLong).withZone(timeZone)
+  }
 }
-
-

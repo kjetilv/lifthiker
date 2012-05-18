@@ -27,13 +27,15 @@ import code.model.{Stops, WalkingDistance, Position}
 
 class GeoComet extends CometActor {
 
-  private object route extends SessionVar[Box[Int]](Empty)
+  private object route extends SessionVar[Option[Int]](Some(37))
 
-  private object position extends SessionVar[Box[Position]](Empty)
+  private object position extends SessionVar[Option[Position]](None)
 
-  private object walkingDistance extends SessionVar[Box[WalkingDistance]](Full(WalkingDistance(500)))
+  private object walkingDistance extends SessionVar[Option[Int]](Some(500))
 
-  private object stopCount extends SessionVar[Box[Int]](Full(5))
+  private object stopCount extends SessionVar[Option[Int]](Some(5))
+
+  private object trip extends SessionVar[Option[Int]](None)
 
   private val address = new InetSocketAddress(System getProperty "trafikantenapi", 80)
 
@@ -58,15 +60,12 @@ class GeoComet extends CometActor {
           )
         )
       )
-    case _ =>
-      println("Unsupported JSON call: " + in)
+    case _ => println("Unsupported JSON call: " + in)
   }
 
   def mapUpdate(): JsCmd =
-    if (position.isDefined && position.is.isDefined)
-      googleMapsClient.getCanvasCall(position.is.get, "map_canvas")
-    else
-      Noop
+    if (position.isDefined && position.is.isDefined) googleMapsClient.getCanvasCall(position.is.get, "map_canvas")
+    else Noop
 
   private val waiting = <span>Waiting ...</span>
 
@@ -78,55 +77,25 @@ class GeoComet extends CometActor {
     "#map *" #> getMap &
     "#googlemaps-init *" #> googleMapsClient.getGoogleAPIScript &
     "#googlemaps-create *" #> googleMapsClient.getStartScript &
-    "#walking" #> SHtml.ajaxText(walkingDistance.is match {
-      case Full(distance) => distance.meters.toString
-      case Empty => ""
-    }, setWalkingDistance(_)) &
-    "#route" #> SHtml.ajaxText(route.is match {
-      case Full(route) => route.toString
-      case Empty => ""
-    }, setRoute(_)) &
-    "#stopcount" #> SHtml.ajaxText(stopCount.is match {
-      case Full(count) => count.toString
-      case Empty => ""
-    }, setStopCount(_))
+    "#walking" #> ajaxSet(walkingDistance) &
+    "#route" #> ajaxSet(route) &
+    "#stopcount" #> ajaxSet(stopCount) &
+    "#trip" #> ajaxSet(trip)
 
-  private def setRoute(value: String): JsCmd = {
-    try {
-      route.set(Full(value.toInt))
+  private def ajaxSet(sv: SessionVar[Option[Int]]) = SHtml.ajaxText(sv.is match {
+    case Some(no) => no.toString
+    case None => ""
+  }, string => {
+    try { 
+      sv.set(Full(string.toInt))
     } catch {
-      case e =>
-        route.set(Empty)
+      case e => sv.set(Empty)
     }
     CmdPair(
       SetHtml("stops", computeStops()),
       mapUpdate()
-    )
-  }
-
-  private def setStopCount(value: String): JsCmd = {
-    try {
-      stopCount.set(Full(value.toInt))
-    } catch {
-      case e => stopCount.set(Empty)
-    }
-    CmdPair(
-      SetHtml("stops", computeStops()),
-      mapUpdate()
-    )
-  }
-
-  private def setWalkingDistance(dist: String): JsCmd = {
-    try {
-      walkingDistance.set(Full(WalkingDistance(dist.toInt)))
-    } catch {
-      case e => walkingDistance.set(Empty)
-    }
-    CmdPair(
-      SetHtml("stops", computeStops()),
-      mapUpdate()
-    )
-  }
+    )    
+  })
 
   private def setPosition(map: Map[String, _]) {
     position.set(Full(Position(
@@ -153,8 +122,7 @@ class GeoComet extends CometActor {
   }
 
   private def getMap =
-    position.map(p => <iframe width="750"
-                              height="350"
+    position.map(p => <iframe width="750" height="350"
                               frameborder="0" scrolling="no" marginheight="0" marginwidth="0"
                               src={ googleMapsClient getURL p }/>).getOrElse(<span>Waiting...</span>)
 
@@ -168,18 +136,18 @@ class GeoComet extends CometActor {
 
   private def computeStops() =
     position.is match {
-      case Full(pos: Position) =>
-        client.getStops(pos, walkingDistance.is, stopCount, route) match {
-          case Stops(_, Nil, _) => waiting
-          case Stops(_, stops, _) =>
+      case Some(pos: Position) =>
+        client.getStops(pos, walkingDistance.is map (WalkingDistance(_)), stopCount, route, trip) match {
+          case Nil => waiting
+          case stops =>
             <ul>
               { stops.map (stop =>
               <li>
                 { stop.Name }
-                <button onclick={ 
+                <button onclick={
                         val lat = stop.latitude
                         val lon = stop.longitude
-                        "zoomTo(" + lat + ", " + lon + "); addMarkerOn(" + lat + ", " + lon + "," + stop.ID + ")" 
+                        "zoomTo(" + lat + ", " + lon + "); addMarkerOn(" + lat + ", " + lon + "," + stop.ID + ")"
                         } type="button">
                   Go to
                 </button>
@@ -193,8 +161,7 @@ class GeoComet extends CometActor {
                 </ul>
               </li>) }
             </ul>
-          case _ => waiting
         }
-      case Empty => waiting
+      case None => waiting
     }
 }
