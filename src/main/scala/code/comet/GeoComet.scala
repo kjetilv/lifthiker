@@ -137,17 +137,18 @@ class GeoComet extends CometActor {
   private def get[T](fun: Position => T) = <span>{position.map(fun).getOrElse("Waiting...")}</span>
 
   def getRealTimeData(stopId: Int, route: Option[Int]) = {
-    val realTimeMap = client.retreiveRealTime(stopId, route) groupBy ((_:RealTime).DirectionRef)
+    val realTimeMap = 
+      client.retreiveRealTime(stopId, route) groupBy (rt => (rt.DestinationName, rt.DeparturePlatformName))
     <span>
       {
         realTimeMap map (_ match {
-          case (directionRef, times) =>
-            <span>Direction: { directionRef }
+          case ((toWhere, platformName), rts) =>
+            <span>To { toWhere } from platform { platformName }
               <ul>{
-                times.groupBy((_:RealTime).LineRef) map (_ match {
-                  case (routeId, arrivalTimes) => 
+                rts.groupBy(rt => rt.LineRef) map (_ match {
+                  case (routeId, lineRts) => 
                     <li>Line: {routeId} Arrivals: <ul> { 
-                      arrivalTimes.map(rt => <li>{ rt.ExpectedArrivalTime} </li>)
+                      lineRts.map(lineRt => <li>{ lineRt.ExpectedArrivalTime} </li>)
                       }
                     </ul>
                     </li>
