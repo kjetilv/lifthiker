@@ -18,12 +18,12 @@ package code.comet
 
 import net.liftweb.http.js.JsCmd
 import net.liftweb.util.JsonCmd
-import net.liftweb.http.js.JE.{JsRaw, AnonFunc, Call, JsVar}
 import net.liftweb.http.js.JsCmds._
 import java.net.InetSocketAddress
 import net.liftweb.http.{SessionVar, SHtml, CometActor}
 import net.liftweb.common.{Full, Empty, Box}
-import code.model.{Stops, WalkingDistance, Position}
+import net.liftweb.http.js.JE._
+import code.model.{RealTime, Stops, WalkingDistance, Position}
 
 class GeoComet extends CometActor {
 
@@ -44,6 +44,8 @@ class GeoComet extends CometActor {
   private val client = new TrafikantenClient(address)
 
   override def handleJson(in: Any): JsCmd = in match {
+    case JsonCmd("selectStop", _, id: Double, _) =>
+      SetHtml("realtime-canvas", getRealTimeData(id.toInt))
     case JsonCmd("updatePosition", _, map: Map[String, Map[String, _]], _) =>
       setPosition(map("coords"))
       val stops = computeStops()
@@ -134,29 +136,45 @@ class GeoComet extends CometActor {
 
   private def get[T](fun: Position => T) = <span>{position.map(fun).getOrElse("Waiting...")}</span>
 
+  def getRealTimeData(stopId: Int) =
+    <span>
+      <ul>{
+          client.retreiveRealTime(stopId).map((realTime: RealTime) => {
+            <li>Line: {realTime.LineRef} Arrival: { realTime.ExpectedArrivalTime }</li>
+          })
+        }
+      </ul>
+    </span>
+
   private def computeStops() =
     position.is match {
       case Some(pos: Position) =>
         client.getStops(pos, walkingDistance.is map (WalkingDistance(_)), stopCount, route, trip) match {
           case Nil => waiting
           case stops =>
-            <ul>
-              { stops.map (stop =>
-              <li>
-                { stop.Name }
-                <button type="button" onclick={"selectStop(" + stop.latitude + ", " + stop.longitude + ", " + stop.ID + ")"}>
-                  Go to
-                </button>
-                <ul>
-                  { stop.Lines.map(line => { <li>{
-                  <span>{ line.mode}</span>
-                    <span>&nbsp;</span>
-                    <span>{ line.LineName }</span>
-                  }</li>})
-                  }
-                </ul>
-              </li>) }
-            </ul>
+            <span>
+              {Script(jsonInCode)}
+              <ul>
+                { stops.map (stop =>
+                <li>
+                  { stop.Name }
+                  { SHtml.ajaxButton("GOTO", 
+                  Call("selectStop", 
+                    JsRaw(stop.latitude.toString), 
+                    JsRaw(stop.longitude.toString), 
+                    JsRaw(stop.ID.toString)), 
+                  () => jsonCall("selectStop", JsRaw(stop.ID.toString))) }
+                  <ul>
+                    { stop.Lines.map(line => { <li>{
+                    <span>{ line.mode}</span>
+                      <span>&nbsp;</span>
+                      <span>{ line.LineName }</span>
+                    }</li>})
+                    }
+                  </ul>
+                </li>) }
+              </ul>
+            </span>
         }
       case None => waiting
     }

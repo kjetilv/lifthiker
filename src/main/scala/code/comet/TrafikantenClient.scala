@@ -124,8 +124,10 @@ class TrafikantenClient(address: InetSocketAddress) extends CascadingActions {
   
   private implicit val fmtz = new DefaultFormats {
     override val dateFormat = new DateFormat {
-      def format(date: Date) = Conversions toArgument date
-      def parse(string: String) = Some(string) map (Conversions fromValue _) map (_.getMillis) map (new Date(_))
+      def format(date: Date) = 
+        Conversions toArgument date
+      def parse(string: String) = 
+        Some(string) map (Conversions fromValue _) map (_.getMillis) map (new Date(_))
     }
   }
 

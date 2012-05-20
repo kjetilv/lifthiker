@@ -18,7 +18,9 @@ package code.model
 
 import java.util.Date
 
-case class RealTime(RecordedAtTime: Date,
+case class RealTime(LineRef: String,
+                    VehicleRef: String,
+                    RecordedAtTime: Date,
                     DirectionRef: String,
                     AimedArrivalTime: Date,
                     ExpectedArrivalTime: Date,

@@ -24,7 +24,7 @@ object Conversions {
 
   private val argumentPattern = DateTimeFormat forPattern "ddMMyyyyHHmm"
 
-  private val DateRegexp = """Date\((\d+)\+(\d+)\)""".r
+  private val DateRegexp = """\s*/\s*Date\((\d+)\+(\d+)\)\s*/\s*""".r
 
   private val timeZone = DateTimeZone.forID("Europe/Oslo")
 

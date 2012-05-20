@@ -18,9 +18,10 @@ var google_map = 0;
 
 var markers = [];
 
-function selectStop(lat, lon, id) {
+function selectStop(lat, lon, id, ajaxCall) {
     zoomTo(lat, lon); 
     addMarkerOn(lat, lon, id);
+    ajaxCall();
 }
 
 function zoomTo(lat, lon, z) {
