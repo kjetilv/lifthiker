@@ -144,11 +144,7 @@ class GeoComet extends CometActor {
               { stops.map (stop =>
               <li>
                 { stop.Name }
-                <button onclick={
-                        val lat = stop.latitude
-                        val lon = stop.longitude
-                        "zoomTo(" + lat + ", " + lon + "); addMarkerOn(" + lat + ", " + lon + "," + stop.ID + ")"
-                        } type="button">
+                <button type="button" onclick={"selectStop(" + stop.latitude + ", " + stop.longitude + ", " + stop.ID + ")"}>
                   Go to
                 </button>
                 <ul>

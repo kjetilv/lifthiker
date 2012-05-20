@@ -25,9 +25,10 @@ import java.net.InetSocketAddress
 import org.jboss.netty.handler.codec.http._
 import io.Codec
 import org.jboss.netty.buffer.ChannelBuffer
-import net.liftweb.json.JsonAST.{JNothing, JNull, JArray, JValue}
-import net.liftweb.json.{DefaultFormats, JsonParser}
+import net.liftweb.json.JsonAST.{JArray, JValue}
 import code.model._
+import net.liftweb.json.{DateFormat, DefaultFormats, JsonParser}
+import java.util.Date
 
 class TrafikantenClient(address: InetSocketAddress) extends CascadingActions {
   
@@ -39,8 +40,10 @@ class TrafikantenClient(address: InetSocketAddress) extends CascadingActions {
   
   private var trips: Map[Int, Trip] = Map[Int, Trip]()
 
-  def retrieveTrip(id: Int): Trip = parsed(getTripPath(id), trip(_)) match {
-    case trip :: Nil => trip
+  def retreiveRealTime(id: Int): List[RealTime] = parsed(getRealTimePath(id), _.extract[RealTime])
+  
+  def retrieveTrip(id: Int): Trip = parsed(getTripPath(id), _.extract[Trip]) match {
+    case singleTrip :: Nil => singleTrip
     case x => throw new APIException("Failed to parse trip: " + id) 
   } 
 
@@ -80,11 +83,11 @@ class TrafikantenClient(address: InetSocketAddress) extends CascadingActions {
 
   private def retrieveStops(position: Position, walkingDistance: Option[WalkingDistance], hits: Option[Int]): List[Stop] = {
     val path = getStopsPath(position, walkingDistance, hits)
-    val stopList = parsed(path, stop(_))
+    val stopList = parsed(path, _.extract[Stop])
     stopList.map(relevantStop(_)).filterNot(invalid(_)).sortBy(_.WalkingDistance)
   }
 
-  private def parsed[T](path: String, convert: (JValue) => Option[T], listPath: Option[String] = None): List[T] = {
+  private def parsed[T](path: String, convert: (JValue) => T): List[T] = {
     val future = bootstrap connect address
     val doneFuture = future.awaitUninterruptibly()
     if (!future.isSuccess) throw new APIException("Failed to load path: " + path, future.getCause)
@@ -99,9 +102,8 @@ class TrafikantenClient(address: InetSocketAddress) extends CascadingActions {
     val parsedJson = JsonParser parseOpt resultJson
     
     parsedJson match {
-      case Some(array: JArray) => 
-        array.children.toList.map(convert).filterNot(_.isEmpty).map(_.get)
-      case Some(value: JValue) => convert(value).map(List(_)).getOrElse(Nil)
+      case Some(array: JArray) => array.children.toList.map(convert)
+      case Some(value: JValue) => convert(value) :: Nil
       case somethingElse => 
         throw new APIException("Could not make sense of: " + parsedJson) 
     }
@@ -119,23 +121,16 @@ class TrafikantenClient(address: InetSocketAddress) extends CascadingActions {
   
   private def invalid(stop: Stop) = 
     Option(stop.Lines) map (_.isEmpty) getOrElse true || !stop.Lines.contains((_:Line).LineID < 100)
-
-  private implicit val fmtz = new DefaultFormats {
-    override protected def dateFormatter = new java.text.SimpleDateFormat("EEE MMM dd HH:mm:ss Z yyyy")
-  }
   
-  private def stop(value: JValue) = value match {
-    case JNull => None
-    case JNothing => None
-    case json => Some(json.extract[Stop])
-  } 
+  private implicit val fmtz = new DefaultFormats {
+    override val dateFormat = new DateFormat {
+      def format(date: Date) = Conversions toArgument date
+      def parse(string: String) = Some(string) map (Conversions fromValue _) map (_.getMillis) map (new Date(_))
+    }
+  }
 
-  private def trip(value: JValue) = value match {
-    case JNull => None
-    case JNothing => None
-    case json => Some(json.extract[Trip])
-  } 
-
+  private def getRealTimePath(id: Int): String = "/RealTime/GetRealTimeData/" + id
+  
   private def getStopsPath(position: Position, walkingDistance: Option[WalkingDistance], hits: Option[Int]): String = 
     "/Place/GetClosestStopsAdvancedByCoordinates/" +
       "?coordinates=(X=" + position.x + ",Y=" + position.y + ")" +

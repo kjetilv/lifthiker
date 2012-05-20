@@ -18,6 +18,7 @@ package code.model
 
 import org.joda.time.format.DateTimeFormat
 import org.joda.time.{DateTime, ReadableInstant, DateTimeZone}
+import java.util.Date
 
 object Conversions {
 
@@ -27,7 +28,9 @@ object Conversions {
 
   private val timeZone = DateTimeZone.forID("Europe/Oslo")
 
-  def toArgument(date: ReadableInstant) = argumentPattern print date
+  def toArgument(date: Date): String = toArgument(new DateTime(date))
+  
+  def toArgument(date: ReadableInstant): String = argumentPattern print date
 
   def fromValue(string: String) = {
     val DateRegexp(epoch, _) = string

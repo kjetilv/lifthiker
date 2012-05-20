@@ -18,6 +18,11 @@ var google_map = 0;
 
 var markers = [];
 
+function selectStop(lat, lon, id) {
+    zoomTo(lat, lon); 
+    addMarkerOn(lat, lon, id);
+}
+
 function zoomTo(lat, lon, z) {
     if (google_map == 0) {
         var zoom_value = typeof(z) == 'undefined' ? 16 : z;
