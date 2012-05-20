@@ -45,7 +45,7 @@ class GeoComet extends CometActor {
 
   override def handleJson(in: Any): JsCmd = in match {
     case JsonCmd("selectStop", _, id: Double, _) =>
-      SetHtml("realtime-canvas", getRealTimeData(id.toInt))
+      SetHtml("realtime-canvas", getRealTimeData(id.toInt, route))
     case JsonCmd("updatePosition", _, map: Map[String, Map[String, _]], _) =>
       setPosition(map("coords"))
       val stops = computeStops()
@@ -136,16 +136,30 @@ class GeoComet extends CometActor {
 
   private def get[T](fun: Position => T) = <span>{position.map(fun).getOrElse("Waiting...")}</span>
 
-  def getRealTimeData(stopId: Int) =
+  def getRealTimeData(stopId: Int, route: Option[Int]) = {
+    val realTimeMap = client.retreiveRealTime(stopId, route) groupBy ((_:RealTime).DirectionRef)
     <span>
-      <ul>{
-          client.retreiveRealTime(stopId).map((realTime: RealTime) => {
-            <li>Line: {realTime.LineRef} Arrival: { realTime.ExpectedArrivalTime }</li>
-          })
-        }
-      </ul>
+      {
+        realTimeMap map (_ match {
+          case (directionRef, times) =>
+            <span>Direction: { directionRef }
+              <ul>{
+                times.groupBy((_:RealTime).LineRef) map (_ match {
+                  case (routeId, arrivalTimes) => 
+                    <li>Line: {routeId} Arrivals: <ul> { 
+                      arrivalTimes.map(rt => <li>{ rt.ExpectedArrivalTime} </li>)
+                      }
+                    </ul>
+                    </li>
+                })
+                }
+              </ul>
+            </span>
+        })
+      }
     </span>
-
+  }
+  
   private def computeStops() =
     position.is match {
       case Some(pos: Position) =>

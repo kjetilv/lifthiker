@@ -27,8 +27,8 @@ import io.Codec
 import org.jboss.netty.buffer.ChannelBuffer
 import net.liftweb.json.JsonAST.{JArray, JValue}
 import code.model._
-import net.liftweb.json.{DateFormat, DefaultFormats, JsonParser}
 import java.util.Date
+import net.liftweb.json._
 
 class TrafikantenClient(address: InetSocketAddress) extends CascadingActions {
   
@@ -40,7 +40,13 @@ class TrafikantenClient(address: InetSocketAddress) extends CascadingActions {
   
   private var trips: Map[Int, Trip] = Map[Int, Trip]()
 
-  def retreiveRealTime(id: Int): List[RealTime] = parsed(getRealTimePath(id), _.extract[RealTime])
+  def retreiveRealTime(id: Int, route: Option[Int]): List[RealTime] = { 
+    val list = parsed(getRealTimePath(id), _.extract[RealTime])
+    route match {
+      case None => list
+      case Some(routeId) => list.filter(_.LineRef == routeId.toString)
+    }
+  }
   
   def retrieveTrip(id: Int): Trip = parsed(getTripPath(id), _.extract[Trip]) match {
     case singleTrip :: Nil => singleTrip
