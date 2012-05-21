@@ -66,13 +66,12 @@ class GeoComet extends CometActor {
     if (position.isDefined && position.is.isDefined) googleMapsClient.getCanvasCall(position.is.get, "map_canvas")
     else Noop
 
-  def render = "#geo *" #> getGeoScript &
+  def render = "#geoscript *" #> getGeoScript &
     "#longitude *" #> getLongitude &
     "#latitude *" #> getLatitude &
     "#stops *" #> waiting &
     "#map *" #> getMap &
     "#googlemaps-init *" #> googleMapsClient.getGoogleAPIScript &
-    "#googlemaps-create *" #> googleMapsClient.getStartScript &
     "#walking" #> ajaxSet(walkingDistance) &
     "#route" #> ajaxSet(route) &
     "#stopcount" #> ajaxSet(stopCount) &
