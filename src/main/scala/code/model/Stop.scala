@@ -25,16 +25,8 @@ case class Stop(ID: Int,
                 ShortName: String,
                 WalkingDistance: Int, 
                 Lines: List[Line]) {
-
-  private val conversion = new com.ibm.util.CoordinateConversion
   
-  private val latLon = {
-    conversion.utm2LatLon("32 V " + X + " " + Y)
-  } 
-  
-  val latitude = latLon(0)
-  
-  val longitude = latLon(1)
+  val position = Position(X, Y)
 }
 
 

@@ -21,13 +21,13 @@ import net.liftweb.util.JsonCmd
 import net.liftweb.http.js.JsCmds._
 import java.net.InetSocketAddress
 import net.liftweb.http.{SessionVar, SHtml, CometActor}
-import net.liftweb.common.{Full, Empty, Box}
+import net.liftweb.common.{Full, Empty}
 import net.liftweb.http.js.JE._
-import code.model.{RealTime, Stops, WalkingDistance, Position}
+import code.model.{WalkingDistance, Position}
 
 class GeoComet extends CometActor {
 
-  private object route extends SessionVar[Option[Int]](Some(37))
+  private object route extends SessionVar[Option[Int]](None)
 
   private object position extends SessionVar[Option[Position]](None)
 
@@ -55,11 +55,7 @@ class GeoComet extends CometActor {
           SetHtml("longitude", getLongitude),
           CmdPair(
             SetHtml("latitude", getLatitude),
-            CmdPair(
-              SetHtml("altitude", getAltitude),
-              mapUpdate()
-            )
-          )
+            mapUpdate())
         )
       )
     case _ => println("Unsupported JSON call: " + in)
@@ -69,12 +65,9 @@ class GeoComet extends CometActor {
     if (position.isDefined && position.is.isDefined) googleMapsClient.getCanvasCall(position.is.get, "map_canvas")
     else Noop
 
-  private val waiting = <span>Waiting ...</span>
-
   def render = "#geo *" #> getGeoScript &
     "#longitude *" #> getLongitude &
     "#latitude *" #> getLatitude &
-    "#altitude *" #> getAltitude &
     "#stops *" #> waiting &
     "#map *" #> getMap &
     "#googlemaps-init *" #> googleMapsClient.getGoogleAPIScript &
@@ -83,6 +76,8 @@ class GeoComet extends CometActor {
     "#route" #> ajaxSet(route) &
     "#stopcount" #> ajaxSet(stopCount) &
     "#trip" #> ajaxSet(trip)
+
+  private val waiting = <span>Waiting ...</span>
 
   private def ajaxSet(sv: SessionVar[Option[Int]]) = SHtml.ajaxText(sv.is match {
     case Some(no) => no.toString
@@ -102,8 +97,7 @@ class GeoComet extends CometActor {
   private def setPosition(map: Map[String, _]) {
     position.set(Full(Position(
       getArg(map, "latitude").get,
-      getArg(map, "longitude").get,
-      getArg(map, "altitude"))))
+      getArg(map, "longitude").get)))
   }
 
   private def getArg(map: Map[String, _], key: String) =
@@ -123,37 +117,30 @@ class GeoComet extends CometActor {
     </span>
   }
 
-  private def getMap =
-    position.map(p => <iframe width="750" height="350"
-                              frameborder="0" scrolling="no" marginheight="0" marginwidth="0"
-                              src={ googleMapsClient getURL p }/>).getOrElse(<span>Waiting...</span>)
+  private def getMap = position.map(googleMapsClient getURL _).map(mapIFrame(_)) getOrElse <span>Waiting...</span>
+
+  private def mapIFrame(url: String) =
+      <iframe width="750" height="350" frameborder="0" scrolling="no" marginheight="0" marginwidth="0" src={url}/>
 
   private def getLatitude = get(_.latitude)
 
   private def getLongitude= get(_.longitude)
 
-  private def getAltitude = get(_.altitude)
-
   private def get[T](fun: Position => T) = <span>{position.map(fun).getOrElse("Waiting...")}</span>
 
   def getRealTimeData(stopId: Int, route: Option[Int]) = {
     val realTimeMap = 
-      client.retreiveRealTime(stopId, route) groupBy (rt => (rt.DestinationName, rt.DeparturePlatformName))
+      client.retreiveRealTime(stopId, route) groupBy (rt => (rt.LineRef, rt.DestinationName, rt.DeparturePlatformName))
     <span>
       {
         realTimeMap map (_ match {
-          case ((toWhere, platformName), rts) =>
-            <span>To { toWhere } from platform { platformName }
+          case ((lineRef, toWhere, platformName), rts) =>
+            <span>Line { lineRef } to { toWhere } from platform { platformName }
               <ul>{
-                rts.groupBy(rt => rt.LineRef) map (_ match {
-                  case (routeId, lineRts) => 
-                    <li>Line: {routeId} Arrivals: <ul> { 
-                      lineRts.map(lineRt => <li>{ lineRt.ExpectedArrivalTime} </li>)
-                      }
-                    </ul>
-                    </li>
-                })
-                }
+                rts map(rt =>  
+                    <li>{ rt.ExpectedArrivalTime } </li>
+                )
+                } 
               </ul>
             </span>
         })
@@ -175,8 +162,8 @@ class GeoComet extends CometActor {
                   { stop.Name }
                   { SHtml.ajaxButton("GOTO", 
                   Call("selectStop", 
-                    JsRaw(stop.latitude.toString), 
-                    JsRaw(stop.longitude.toString), 
+                    JsRaw(stop.position.latitude.toString), 
+                    JsRaw(stop.position.longitude.toString), 
                     JsRaw(stop.ID.toString)), 
                   () => jsonCall("selectStop", JsRaw(stop.ID.toString))) }
                   <ul>

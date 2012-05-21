@@ -110,11 +110,9 @@ function indexOf(id) {
     Call("zoomTo", JsRaw(position.latitude.toString), JsRaw(position.longitude.toString))
   
   def getCanvasScript(position: Position, zoom: Int = 16) =
-    <div id="map_canvas" style="width:100%; height:100%">
-      { 
-        javascript("zoomTo(" + position.latitude + ", " + position.longitude + ", " + zoom + ")") 
-      }
-    </div>
+    <div id="map_canvas" style="width:100%; height:100%">{ 
+      javascript("zoomTo(" + position.latitude + ", " + position.longitude + ", " + zoom + ")") 
+      }</div>
   
   def getURL(position: Position) =
     "https://maps.google.com/?ie=UTF8&amp;hq=&amp;hnear=Oslo,+Norway&amp;ll=" +

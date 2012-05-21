@@ -141,7 +141,7 @@ class TrafikantenClient(address: InetSocketAddress) extends CascadingActions {
   
   private def getStopsPath(position: Position, walkingDistance: Option[WalkingDistance], hits: Option[Int]): String = 
     "/Place/GetClosestStopsAdvancedByCoordinates/" +
-      "?coordinates=(X=" + position.x + ",Y=" + position.y + ")" +
+      "?coordinates=(X=" + position.utmX + ",Y=" + position.utmY + ")" +
       hits.map("&proposals=" + _).getOrElse("") +
       walkingDistance.map("&walkingDistance=" + _.meters).getOrElse("")
 

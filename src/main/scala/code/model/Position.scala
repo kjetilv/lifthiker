@@ -16,19 +16,39 @@
 
 package code.model
 
-case class Position(latitude: Double, longitude: Double, altitude: Option[Double] = None) {
+object Position {
 
   private val conversion = new com.ibm.util.CoordinateConversion()
   
-  private val coords = {
-    val converted = conversion.latLon2UTM(latitude, longitude)
-    val values = converted split "\\s+" takeRight 2 map (_.toInt)
-    values(0) → values(1)
+  def apply(utmX: Int, utmY: Int): Position = {
+    val latLon = {
+      conversion.utm2LatLon("32 V " + utmX + " " + utmY)
+    } 
+    Position(latLon(0), latLon(1), utmX, utmY)
   }
   
-  val x = coords._1
+  def apply(latitude: Double, longitude: Double): Position = {
+    val coords = {
+        val converted = conversion.latLon2UTM(latitude, longitude)
+        val values = converted split "\\s+" takeRight 2 map (_.toInt)
+        values(0) → values(1)
+      }
+    Position(latitude, longitude, coords._1, coords._2)
+  } 
+}
+
+case class Position(latitude: Double, longitude: Double, utmX: Int, utmY: Int) {
   
-  val y = coords._2
-  
-  def closeTo(position: Position) = true
+  def closeTo(position: Position, closeMeters: Int = 100) = distanceTo(position) < closeMeters;
+
+  def distanceTo(position: Position): Double = {
+    import math._
+    val dLat = (position.latitude - latitude).toRadians
+    val dLon = (position.longitude - longitude).toRadians
+    val lat2Rad = position.latitude.toRadians
+    val latRad = latitude.toRadians
+    val a = sin(dLat / 2) * sin(dLat / 2) * sin(dLon / 2) * sin(dLon / 2) * cos(latRad) * cos(lat2Rad)
+    val c = 2 * atan2(math.sqrt(a), math.sqrt(1 - a))
+    6379 * c
+  }
 }

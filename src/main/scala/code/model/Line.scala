@@ -21,6 +21,7 @@ case class Line(LineID: Int,
                 Transportation: Int) {
 
   val mode = Transportation match {
+    case 8 => "Bane"
     case 7 => "Trikk"
     case 2 => "Buss"
     case x => x.toString
