@@ -134,7 +134,9 @@ class GeoComet extends CometActor {
       client.retreiveRealTime(stopId, route) groupBy (rt => (rt.LineRef, rt.DestinationName, rt.DeparturePlatformName))
     <span>
       {
-      realTimeMap map (_ match {
+      realTimeMap.toList.sortBy(_ match {
+        case ((lineRef, _, _), _) => lineRef.toInt
+      }).map(_ match {
         case ((lineRef, toWhere, platformName), rts) =>
           <span>Line { lineRef } to { toWhere } from platform { platformName }
             <ul>{
