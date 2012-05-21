@@ -157,15 +157,19 @@ class GeoComet extends CometActor {
     }
 
   private def entry(rt: RealTime): String = {
-    val duration = new Interval(new DateTime(), new DateTime(rt.ExpectedArrivalTime)).toDuration
+    val now = new DateTime()
+    val arrivalTime = new DateTime(rt.ExpectedArrivalTime)
+    val duration = if (now isBefore arrivalTime) new Interval(now, arrivalTime).toDuration else Duration.ZERO
     "Vehicle " + rt.VehicleRef + " in block " + rt.BlockRef + 
-    (if (duration.isLongerThan(Duration.standardMinutes(10)))
-      " at " + new DateTime(rt.ExpectedArrivalTime).toString("HH:mm")
-    else " in " + printed(duration)) +
+    (if (duration.isLongerThan(Duration.ZERO))
+      if (duration.isLongerThan(Duration.standardMinutes(10)))
+        " at " + arrivalTime.toString("HH:mm")
+      else " in " + printed(duration)
+    else "now") +
       (if (rt.ExpectedArrivalTime.getTime < rt.AimedArrivalTime.getTime)
-        ", ahead of schedule: " + printed (new Interval(new DateTime(rt.ExpectedArrivalTime), new DateTime(rt.AimedArrivalTime)))
+        ", ahead of schedule: " + printed (new Interval(arrivalTime, new DateTime(rt.AimedArrivalTime)))
       else if (rt.ExpectedArrivalTime.getTime > rt.AimedArrivalTime.getTime)
-        ", delayed: " + printed (new Interval(new DateTime(rt.AimedArrivalTime), new DateTime(rt.ExpectedArrivalTime)))
+        ", delayed: " + printed (new Interval(new DateTime(rt.AimedArrivalTime), arrivalTime))
       else " on time")
   }
 
