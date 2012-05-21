@@ -41,18 +41,13 @@ class TrafikantenClient(address: InetSocketAddress) extends CascadingActions {
   private var trips: Map[Int, Trip] = Map[Int, Trip]()
 
   def retreiveRealTime(id: Int, route: Option[Int]): List[RealTime] = { 
-    val list = parsed(getRealTimePath(id), _.extract[RealTime])
+    val list = parsed(getRealTimePath(id), _.extract[RealTime]) filter (_.LineRef.toInt < 100)
     route match {
       case None => list
       case Some(routeId) => list.filter(_.LineRef == routeId.toString)
     }
   }
   
-  def retrieveTrip(id: Int): Trip = parsed(getTripPath(id), _.extract[Trip]) match {
-    case singleTrip :: Nil => singleTrip
-    case x => throw new APIException("Failed to parse trip: " + id) 
-  } 
-
   def getTrip(id: Int): Trip = 
     trips get id match { 
       case Some(existingTrip) => existingTrip
@@ -81,6 +76,11 @@ class TrafikantenClient(address: InetSocketAddress) extends CascadingActions {
         }
         stops.get.forRoute(route).scaledTo(hits, walkingDistance).stops
     }
+    
+  private def retrieveTrip(id: Int): Trip = parsed(getTripPath(id), _.extract[Trip]) match {
+    case singleTrip :: Nil => singleTrip
+    case x => throw new APIException("Failed to parse trip: " + id) 
+  } 
     
   private def farFrom(position: Position) = stops.get.farFrom(position)
 

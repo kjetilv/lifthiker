@@ -23,7 +23,8 @@ import java.net.InetSocketAddress
 import net.liftweb.http.{SessionVar, SHtml, CometActor}
 import net.liftweb.common.{Full, Empty}
 import net.liftweb.http.js.JE._
-import code.model.{WalkingDistance, Position}
+import code.model.{RealTime, WalkingDistance, Position}
+import org.joda.time._
 
 class GeoComet extends CometActor {
 
@@ -83,7 +84,7 @@ class GeoComet extends CometActor {
     case Some(no) => no.toString
     case None => ""
   }, string => {
-    try { 
+    try {
       sv.set(Full(string.toInt))
     } catch {
       case e => sv.set(Empty)
@@ -91,7 +92,7 @@ class GeoComet extends CometActor {
     CmdPair(
       SetHtml("stops", computeStops()),
       mapUpdate()
-    )    
+    )
   })
 
   private def setPosition(map: Map[String, _]) {
@@ -129,25 +130,44 @@ class GeoComet extends CometActor {
   private def get[T](fun: Position => T) = <span>{position.map(fun).getOrElse("Waiting...")}</span>
 
   def getRealTimeData(stopId: Int, route: Option[Int]) = {
-    val realTimeMap = 
+    val realTimeMap =
       client.retreiveRealTime(stopId, route) groupBy (rt => (rt.LineRef, rt.DestinationName, rt.DeparturePlatformName))
     <span>
       {
-        realTimeMap map (_ match {
-          case ((lineRef, toWhere, platformName), rts) =>
-            <span>Line { lineRef } to { toWhere } from platform { platformName }
-              <ul>{
-                rts map(rt =>  
-                    <li>{ rt.ExpectedArrivalTime } </li>
-                )
-                } 
-              </ul>
-            </span>
-        })
+      realTimeMap map (_ match {
+        case ((lineRef, toWhere, platformName), rts) =>
+          <span>Line { lineRef } to { toWhere } from platform { platformName }
+            <ul>{
+              rts.map(entry(_)).map(s => <li>{ s } </li>)
+              }
+            </ul>
+          </span>
+      })
       }
     </span>
   }
-  
+
+  private def printed(interval: Interval): String = printed(interval.toDuration)
+
+  private def printed(duration: Duration): String = 
+    duration.getStandardMinutes + ":" + {
+      val secs = duration.getStandardSeconds % 60
+      if (secs < 10) "0" + secs else secs.toString
+    }
+
+  private def entry(rt: RealTime): String = {
+    val duration = new Interval(new DateTime(), new DateTime(rt.ExpectedArrivalTime)).toDuration
+    "Vehicle " + rt.VehicleRef + " in block " + rt.BlockRef + 
+    (if (duration.isLongerThan(Duration.standardMinutes(10)))
+      " at " + new DateTime(rt.ExpectedArrivalTime).toString("HH:mm")
+    else " in " + printed(duration)) +
+      (if (rt.ExpectedArrivalTime.getTime < rt.AimedArrivalTime.getTime)
+        ", ahead of schedule: " + printed (new Interval(new DateTime(rt.ExpectedArrivalTime), new DateTime(rt.AimedArrivalTime)))
+      else if (rt.ExpectedArrivalTime.getTime > rt.AimedArrivalTime.getTime)
+        ", delayed: " + printed (new Interval(new DateTime(rt.AimedArrivalTime), new DateTime(rt.ExpectedArrivalTime)))
+      else " on time")
+  }
+
   private def computeStops() =
     position.is match {
       case Some(pos: Position) =>
@@ -160,11 +180,11 @@ class GeoComet extends CometActor {
                 { stops.map (stop =>
                 <li>
                   { stop.Name }
-                  { SHtml.ajaxButton("GOTO", 
-                  Call("selectStop", 
-                    JsRaw(stop.position.latitude.toString), 
-                    JsRaw(stop.position.longitude.toString), 
-                    JsRaw(stop.ID.toString)), 
+                  { SHtml.ajaxButton("GOTO",
+                  Call("selectStop",
+                    JsRaw(stop.position.latitude.toString),
+                    JsRaw(stop.position.longitude.toString),
+                    JsRaw(stop.ID.toString)),
                   () => jsonCall("selectStop", JsRaw(stop.ID.toString))) }
                   <ul>
                     { stop.Lines.map(line => { <li>{
