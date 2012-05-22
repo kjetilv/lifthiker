@@ -36,6 +36,8 @@ object Position {
 }
 
 case class Position(latitude: Double, longitude: Double, utmX: Int, utmY: Int) {
+
+  private val earthRadiusMeters = 6371000 
   
   def closeTo(position: Position, closeMeters: Int = 100) = distanceTo(position) < closeMeters;
 
@@ -47,6 +49,6 @@ case class Position(latitude: Double, longitude: Double, utmX: Int, utmY: Int) {
     val latRad = latitude.toRadians
     val a = sin(dLat / 2) * sin(dLat / 2) * sin(dLon / 2) * sin(dLon / 2) * cos(latRad) * cos(lat2Rad)
     val c = 2 * atan2(math.sqrt(a), math.sqrt(1 - a))
-    6379 * c
+    earthRadiusMeters * c
   }
 }

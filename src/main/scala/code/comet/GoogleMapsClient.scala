@@ -24,7 +24,7 @@ class GoogleMapsClient(key: String) {
   def getGoogleAPIScript = 
     sourcedJavascript("http://maps.googleapis.com/maps/api/js?key=" + key + "&sensor=false")
 
-  def getCanvasCall(position: Position, id: String, zoom: Int = 16) = 
+  def zoomToCmd(position: Position, id: String, zoom: Int = 16) = 
     Call("zoomTo", JsRaw(position.latitude.toString), JsRaw(position.longitude.toString))
   
   def getCanvasScript(position: Position, zoom: Int = 16) =
