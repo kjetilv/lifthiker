@@ -20,32 +20,32 @@ case class Stops(position: Position,
                  stops: List[Stop], 
                  walkingDistance: Option[WalkingDistance] = None) {
 
-  def forRoute(routeBox: Option[Int]): Stops = {
+  def forRoute(routeBox: Option[TransportRoute]): Stops = {
     routeBox match {
       case Some(route) => Stops(position, stops map withLinesFor(route) filter (hasLines), walkingDistance)
       case None => this
     }
   }
 
-  private def withLinesFor(route: Int) = (stop: Stop) => stop.copy(Lines = stop.Lines filter lineFor(route))
+  private def withLinesFor(route: TransportRoute) = (stop: Stop) => stop.copy(Lines = stop.Lines filter lineFor(route))
 
-  private def lineFor(route: Int) = (line: Line) => line.LineID == route
+  private def lineFor(route: TransportRoute) = (line: Line) => line.LineID == route.id
 
   private def hasLines = (stop: Stop) => !stop.Lines.isEmpty
 
   val hits = stops.size
 
-  def scaledTo(hits: Option[Int], distance: Option[WalkingDistance]) =
-    Stops(position, qualifyingStops(hits, distance), distance)
+  def scaledTo(userState: UserState) =
+    Stops(position, qualifyingStops(userState), userState.range)
 
   def farFrom(position: Position) = !closeTo(position)
 
   def closeTo(position: Position) = this.position closeTo position
 
-  private def qualifyingStops(hits: Option[Int], distance: Option[WalkingDistance]): List[Stop] = {
+  private def qualifyingStops(userState: UserState): List[Stop] = {
     val sorted = stops sortBy (_.WalkingDistance)
-    val pruned = hits.map(sorted take _) getOrElse sorted
-    distance.map(pruned filter withinDistance(_)) getOrElse pruned
+    val pruned = userState.stopsToShow.map(sorted take _) getOrElse sorted
+    userState.range.map(pruned filter withinDistance(_)) getOrElse pruned
   }
 
   private def withinDistance(distance: WalkingDistance): (Stop) => Boolean =
