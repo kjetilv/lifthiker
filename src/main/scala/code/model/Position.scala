@@ -21,19 +21,17 @@ object Position {
   private val conversion = new com.ibm.util.CoordinateConversion()
   
   def apply(utmX: Int, utmY: Int): Position = {
-    val latLon = {
-      conversion.utm2LatLon("32 V " + utmX + " " + utmY)
-    } 
+    val latLon = conversion.utm2LatLon("32 V " + utmX + " " + utmY)
     Position(latLon(0), latLon(1), utmX, utmY)
   }
   
   def apply(latitude: Double, longitude: Double): Position = {
-    val coords = {
+    val xy = {
         val converted = conversion.latLon2UTM(latitude, longitude)
         val values = converted split "\\s+" takeRight 2 map (_.toInt)
         values(0) → values(1)
       }
-    Position(latitude, longitude, coords._1, coords._2)
+    Position(latitude, longitude, xy._1, xy._2)
   } 
 }
 

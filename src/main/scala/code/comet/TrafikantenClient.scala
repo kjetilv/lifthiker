@@ -40,8 +40,8 @@ class TrafikantenClient(address: InetSocketAddress) extends CascadingActions {
   
   private var trips: Map[Int, Trip] = Map[Int, Trip]()
 
-  def retreiveRealTime(id: Int, route: Option[Int]): List[RealTime] = { 
-    val list = parsed(getRealTimePath(id), _.extract[RealTime]) filter (_.LineRef.toInt < 100)
+  def getRealTime(id: Int, route: Option[Int]): List[RealTime] = { 
+    val list = read[RealTime](getRealTimePath(id)) filter (_.LineRef.toInt < 100)
     route match {
       case None => list
       case Some(routeId) => list.filter(_.LineRef == routeId.toString)
@@ -77,7 +77,7 @@ class TrafikantenClient(address: InetSocketAddress) extends CascadingActions {
         stops.get.forRoute(route).scaledTo(hits, walkingDistance).stops
     }
     
-  private def retrieveTrip(id: Int): Trip = parsed(getTripPath(id), _.extract[Trip]) match {
+  private def retrieveTrip(id: Int): Trip = read[Trip](getTripPath(id)) match {
     case singleTrip :: Nil => singleTrip
     case x => throw new APIException("Failed to parse trip: " + id) 
   } 
@@ -89,11 +89,11 @@ class TrafikantenClient(address: InetSocketAddress) extends CascadingActions {
 
   private def retrieveStops(position: Position, walkingDistance: Option[WalkingDistance], hits: Option[Int]): List[Stop] = {
     val path = getStopsPath(position, walkingDistance, hits)
-    val stopList = parsed(path, _.extract[Stop])
+    val stopList = read[Stop](path)
     stopList.map(relevantStop(_)).filterNot(invalid(_)).sortBy(_.WalkingDistance)
   }
 
-  private def parsed[T](path: String, convert: (JValue) => T): List[T] = {
+  private def read[T](path: String)(implicit mf: Manifest[T]): List[T] = {
     val future = bootstrap connect address
     val doneFuture = future.awaitUninterruptibly()
     if (!future.isSuccess) throw new APIException("Failed to load path: " + path, future.getCause)
@@ -108,8 +108,8 @@ class TrafikantenClient(address: InetSocketAddress) extends CascadingActions {
     val parsedJson = JsonParser parseOpt resultJson
     
     parsedJson match {
-      case Some(array: JArray) => array.children.toList.map(convert)
-      case Some(value: JValue) => convert(value) :: Nil
+      case Some(array: JArray) => array.children.toList.map(_.extract[T])
+      case Some(value: JValue) => value.extract[T] :: Nil
       case somethingElse => 
         throw new APIException("Could not make sense of: " + parsedJson) 
     }

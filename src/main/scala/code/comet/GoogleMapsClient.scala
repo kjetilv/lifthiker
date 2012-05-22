@@ -37,9 +37,7 @@ class GoogleMapsClient(key: String) {
       position.latitude + "," + position.longitude + 
       "&amp;spn=0.54042,1.388397&amp;t=h&amp;z=10&amp;output=embed"
   
-  private def javascript(script: String) = 
-    <script type="text/javascript">{script}</script>
+  private def javascript(script: String) = <script type="text/javascript">{script}</script>
   
-  private def sourcedJavascript(src: String) = 
-    <script type="text/javascript" src={src}></script>
+  private def sourcedJavascript(src: String) = <script type="text/javascript" src={src}></script>
 }
