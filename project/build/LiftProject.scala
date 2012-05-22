@@ -23,7 +23,6 @@ class LiftProject(info: ProjectInfo) extends DefaultWebProject(info) with IdeaPr
     "io.netty" % "netty" % "3.4.4.Final", 
     "joda-time" % "joda-time" % "2.1", 
     "org.joda" % "joda-convert" % "1.2", 
-    "vkode" % "scala-utils" % "0.1-SNAPSHOT",
     "junit" % "junit" % "4.7" % "test",
     "ch.qos.logback" % "logback-classic" % "0.9.26",
     "org.scala-tools.testing" %% "specs" % "1.6.9" % "test",

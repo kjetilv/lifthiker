@@ -20,7 +20,6 @@ import org.jboss.netty.channel._
 import org.jboss.netty.bootstrap.ClientBootstrap
 import socket.nio.NioClientSocketChannelFactory
 import java.util.concurrent.Executors
-import vkode.scala.utils.CascadingActions
 import java.net.InetSocketAddress
 import org.jboss.netty.handler.codec.http._
 import io.Codec
@@ -30,7 +29,7 @@ import code.model._
 import java.util.Date
 import net.liftweb.json._
 
-class TrafikantenClient(address: InetSocketAddress) extends CascadingActions {
+class TrafikantenClient(address: InetSocketAddress) {
   
   import org.jboss.netty.channel.Channels._
 
@@ -115,11 +114,13 @@ class TrafikantenClient(address: InetSocketAddress) extends CascadingActions {
     }
   }
 
-  private def createRequest[T](path: String): HttpRequest = 
-    new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, path) withActions(
-      _.setHeader(HttpHeaders.Names.HOST, address.getHostName),
-      _.setHeader(HttpHeaders.Names.CONNECTION, HttpHeaders.Values.CLOSE))
-
+  private def createRequest[T](path: String): HttpRequest = { 
+    val req = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, path)
+    req.setHeader(HttpHeaders.Names.HOST, address.getHostName)
+    req.setHeader(HttpHeaders.Names.CONNECTION, HttpHeaders.Values.CLOSE)
+    req
+  }
+    
   private def relevantStop(stop: Stop): Stop = {
     val relevantLines = Option(stop.Lines).map(_.filter(_.LineID < 100))
     stop.copy(Lines = relevantLines.getOrElse(Nil))
@@ -147,11 +148,14 @@ class TrafikantenClient(address: InetSocketAddress) extends CascadingActions {
 
   private def getTripPath(id: Int): String = "/Trip/GetTrip/" + id
 
-  private val bootstrap = 
-    new ClientBootstrap(new NioClientSocketChannelFactory(
+  private val bootstrap = { 
+    val bs = new ClientBootstrap(new NioClientSocketChannelFactory(
       Executors.newCachedThreadPool(),
       Executors.newCachedThreadPool())
-    ) withAction (_ setPipelineFactory (factory))
+    ) 
+    bs.setPipelineFactory(factory)
+    bs
+  }
   
   private object handler extends SimpleChannelUpstreamHandler {
     
@@ -172,17 +176,21 @@ class TrafikantenClient(address: InetSocketAddress) extends CascadingActions {
     private def sb(ctx: ChannelHandlerContext) = {
       val channel = ctx.getChannel
       val sb = channelSb.get(channel)
-      if (sb == null) 
-        new StringBuilder withAction (channelSb.set(channel, _))
-      else 
-        sb
+      if (sb == null) { 
+        val newSb = new StringBuilder()
+        channelSb.set(channel, newSb)
+        newSb
+      } else sb
     }
   }    
 
   private object factory extends ChannelPipelineFactory {
-    def getPipeline = pipeline() withActions ( 
-      _.addLast("codes", new HttpClientCodec),
-      _.addLast("gzip", new HttpContentDecompressor),
-      _.addLast("handler", handler))
+    def getPipeline = {
+      val p = pipeline()
+      p.addLast("codes", new HttpClientCodec)
+      p.addLast("gzip", new HttpContentDecompressor)
+      p.addLast("handler", handler)
+      p
+    }
   }
 }

@@ -24,6 +24,7 @@ import net.liftweb.http.{SessionVar, SHtml, CometActor}
 import net.liftweb.http.js.JE._
 import code.model.{RealTime, WalkingDistance, Position}
 import org.joda.time._
+import annotation.tailrec
 
 class GeoComet extends CometActor {
 
@@ -47,6 +48,14 @@ class GeoComet extends CometActor {
 
   private val trafikanten = new TrafikantenClient(address)
 
+  private def commands(cmds: JsCmd*) = listCommands(cmds.toList)
+  
+  private def listCommands(cmds: List[JsCmd]): JsCmd = cmds match {
+    case Nil => Noop
+    case cmd :: Nil => cmd
+    case cmd :: tail => CmdPair(cmd, listCommands(tail))
+  }
+  
   override def handleJson(in: Any): JsCmd = in match {
     case JsonCmd("selectStop", _, id: Double, _) =>
       SetHtml("realtime-canvas", getRealTimeData(id.toInt, route))
@@ -55,17 +64,18 @@ class GeoComet extends CometActor {
     case JsonCmd("updatePosition", _, map: Map[String, Map[String, _]], _) =>
       val newPosition = readPosition(map("coords"))
       lastPositionUpdate(Some(new DateTime))
-      CmdPair(
+      commands(
         SetHtml("longitude", getLongitude),
-        CmdPair(
-          SetHtml("latitude", getLatitude),
-          CmdPair(
-            SetHtml("lastPositionUpdate", getLastPositionUpdate),
-            updateMap(updatedPosition(newPosition)))))
+        SetHtml("latitude", getLatitude),
+        SetHtml("lastPositionUpdate", getLastPositionUpdate),
+        updateMap(updatedPosition(newPosition))
+      )
     case _ => println("Unsupported JSON call: " + in)
   }
 
-  def updateMap(recomputeStops: Boolean = true) = CmdPair(SetHtml("stops", computeStops(recomputeStops)), mapUpdate()) 
+  def updateMap(recomputeStops: Boolean = true) = commands(
+    SetHtml("stops", 
+      computeStops(recomputeStops)), mapUpdate()) 
 
   def mapUpdate(): JsCmd = position.get match {
     case Some(pos) => googleMaps.zoomToCmd(pos, "map_canvas")
@@ -80,19 +90,19 @@ class GeoComet extends CometActor {
     "#stops *" #> waiting &
     "#map *" #> getMap &
     "#googlemaps-init *" #> googleMaps.getGoogleAPIScript &
-    "#walking" #> ajaxSetInt(walkingDistance) &
-    "#route" #> ajaxSetInt(route) &
-    "#stopcount" #> ajaxSetInt(stopCount) &
-    "#trip" #> ajaxSetInt(trip)
+    "#walking" #> ajaxIntText(walkingDistance) &
+    "#route" #> ajaxIntText(route) &
+    "#stopcount" #> ajaxIntText(stopCount) &
+    "#trip" #> ajaxIntText(trip)
   
   private def getLastPositionUpdate =
     <span> { lastPositionUpdate.get.map(_ toString "HH:mm:ss").getOrElse("N/A") } </span>
   
   private val waiting = <span>Waiting ...</span>
 
-  private def ajaxSetInt(sv: SessionVar[Option[Int]]) = ajaxSet[Int](sv, _.toInt) 
+  private def ajaxIntText(sv: SessionVar[Option[Int]]) = ajaxText[Int](sv, _.toInt) 
   
-  private def ajaxSet[T](sv: SessionVar[Option[T]], fun: String => T) = SHtml.ajaxText(sv.get match {
+  private def ajaxText[T](sv: SessionVar[Option[T]], fun: String => T) = SHtml.ajaxText(sv.get match {
     case Some(no) => no.toString
     case None => ""
   }, string => {
@@ -128,7 +138,7 @@ class GeoComet extends CometActor {
     <span>
       {Script(jsonInCode)}
       {Script(JsIf(JsVar("navigator.geolocation"),
-      CmdPair(
+      commands(
         Call(
           "navigator.geolocation.getCurrentPosition",
           AnonFunc("coords", jsonCall("updatePosition", JsRaw("coords"))),
