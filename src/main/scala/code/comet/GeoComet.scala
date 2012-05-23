@@ -43,8 +43,7 @@ class GeoComet extends CometActor {
   }
 
   override def handleJson(in: Any): JsCmd = in match {
-    case JsonCmd("selectStop", _, id: Double, _) =>
-      SetHtml("realtime-canvas", getRealTimeData(id.toInt))
+    case JsonCmd("selectStop", _, _, _) => updateRealTimeData()
     case JsonCmd("positionUpdateFailed", _, map: Map[String, Map[String, _]], _) =>
       println("Oops: " + map)
     case JsonCmd("updatePosition", _, map: Map[String, Map[String, _]], _) =>
@@ -57,6 +56,8 @@ class GeoComet extends CometActor {
       )
     case _ => println("Unsupported JSON call: " + in)
   }
+
+  def updateRealTimeData() = SetHtml("realtime-canvas", retrieveRealTimeData())
 
   def updateStopsCommands() = commands(SetHtml("stops", computeStops()), moveAroundInMap())
 
@@ -100,7 +101,9 @@ class GeoComet extends CometActor {
     "Recenter", 
     () => {
       updateUserState(_ withSelectedStop None)
-      updateStopsCommands()
+      CmdPair(
+        updateRealTimeData(),
+        updateStopsCommands())
     })
   
   private def moveAroundInMap(): JsCmd = userState.mapPosition() match {
@@ -204,26 +207,26 @@ class GeoComet extends CometActor {
   private def getDouble(fun: Position => Double) =
     <span>{ userState.position.map(fun).map(nf format _).getOrElse("0.0") }</span>
 
-  private def getRealTimeData(stopId: Int) =
-    <span>
+  private def retrieveRealTimeData() =
+    realTimeByLines().map(m => 
+      <span>
       {
-      realTimeByLines(stopId).map(_ match {
-        case ((lineRef, toWhere, platformName), rts) =>
-          <span>Line { lineRef } to { toWhere } from platform { platformName }
-            <ul>{
-              rts.map(entry(_)).map(s => <li>{ s } </li>)
-              }
-            </ul>
-          </span>
-      })
-      }
-    </span>
+        m.map(_ match {
+          case ((lineRef, toWhere, platformName), rts) =>
+            <span>Line { lineRef } to { toWhere } from platform { platformName }
+              <ul>{
+                rts.map(entry(_)).map(s => <li>{ s } </li>)
+                }
+              </ul>
+            </span>
+        })
+        }
+      </span>) getOrElse <span>No stops selected</span>
 
-  private def realTimeByLines(stopId: Int) =
-    trafikanten.getRealTime(stopId, userState).groupBy(rt =>
-      (rt.LineRef, rt.DestinationName, rt.DeparturePlatformName)).toList.sortBy(_ match {
-      case ((lineRef, _, _), _) => lineRef.toInt
-    })
+  private def realTimeByLines() = trafikanten.getRealTime(userState).map(_.groupBy(rt =>
+    (rt.LineRef, rt.DestinationName, rt.DeparturePlatformName)).toList.sortBy(_ match {
+    case ((lineRef, _, _), _) => lineRef.toInt
+  }))
 
   private def printed(interval: Interval): String = printed(interval.toDuration)
 

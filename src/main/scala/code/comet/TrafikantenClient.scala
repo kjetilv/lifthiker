@@ -33,14 +33,14 @@ class TrafikantenClient(address: InetSocketAddress) {
 
   import org.jboss.netty.channel.Channels._
 
-  def getRealTime(id: Int, userState: UserState): List[RealTime] = {
-    val list = read[RealTime](getRealTimePath(id)) filter (_.LineRef.toInt < 100)
-    userState.preferredRoute match {
-      case None => list
-      case Some(routeId) => list.filter(_.LineRef == routeId.toString)
-    }
-  }
-
+  def getRealTime(userState: UserState) = 
+    getRealTimePath(userState).map(read[RealTime](_)).map(_.filter(_.LineRef.toInt < 100)).map(list => {
+      userState.preferredRoute match {
+        case None => list
+        case Some(routeId) => list.filter(_.LineRef == routeId.toString)
+      }
+    })
+  
   def getTrip(id: Int): Trip = retrieveTrip(id)
 
   def getStops(userState: UserState): List[Stop] = {
@@ -112,7 +112,7 @@ class TrafikantenClient(address: InetSocketAddress) {
     }
   }
 
-  private def getRealTimePath(id: Int): String = "/RealTime/GetRealTimeData/" + id
+  private def getRealTimePath(userState: UserState) = userState.selectedStop.map("/RealTime/GetRealTimeData/" + _.ID)
 
   private def getStopsPath(userState: UserState): String =
     userState.position.map(position => 
