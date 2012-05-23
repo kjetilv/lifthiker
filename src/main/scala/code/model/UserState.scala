@@ -40,6 +40,8 @@ case class UserState(position: Option[Position] = None,
   private val typeIds = preferredTransports.types.map(_.typeId) 
   
   def isSingleRoute = preferredRoute.isDefined 
+
+  def mapPosition() = (selectedStop.map(_.position) :: position :: Nil).filter(_.isDefined).head
   
   def at(pos: Option[Position]) = this.copy(position = pos, lastPositionUpdate = Some(new DateTime()))
   
@@ -49,6 +51,8 @@ case class UserState(position: Option[Position] = None,
   
   def withTransport(tt: TransportType, ok: Boolean) = 
     this.copy(preferredTransports = if (ok) preferredTransports add tt else preferredTransports remove tt)
+  
+  def withSelectedStop(stop: Option[Stop]) = this.copy(selectedStop = stop)
   
   def withPreferredRoute(preferredRoute: Option[TransportRoute]) = this.copy(preferredRoute = preferredRoute)
   

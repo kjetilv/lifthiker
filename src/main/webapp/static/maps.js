@@ -32,6 +32,7 @@ function zoomTo(lat, lon, z) {
           zoom: zoom_value,
           mapTypeId: google.maps.MapTypeId.ROADMAP
         });
+        addMarkerOn(lat, lon, "position");
     } else {
         google_map.panTo(new google.maps.LatLng(lat, lon));
     }

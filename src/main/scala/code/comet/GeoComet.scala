@@ -24,6 +24,7 @@ import net.liftweb.http.{SHtml, CometActor}
 import net.liftweb.http.js.JE._
 import org.joda.time._
 import code.model._
+import java.text.DecimalFormat
 
 class GeoComet extends CometActor {
 
@@ -60,57 +61,66 @@ class GeoComet extends CometActor {
   def updateStopsCommands() = commands(SetHtml("stops", computeStops()), moveAroundInMap())
 
   def render = "#geoscript *" #> getGeoScript &
-    "#longitude *" #> 
+    "#longitude *" #>
       getLongitude &
-    "#latitude *" #> 
+    "#latitude *" #>
       getLatitude &
-    "#lastPositionUpdate *" #> 
+    "#recenter" #> 
+      recenter() &
+    "#lastPositionUpdate *" #>
       getLastPositionUpdate &
-    "#trikk" #> 
+    "#trikk" #>
       setTypeLimiter(Trikk) &
-    "#bane" #> 
+    "#bane" #>
       setTypeLimiter(Bane) &
-    "#buss" #> 
+    "#buss" #>
       setTypeLimiter(Buss) &
-    "#baat" #> 
+    "#baat" #>
       setTypeLimiter(Baat) &
-    "#stops *" #> 
+    "#stops *" #>
       waiting &
-    "#map *" #> 
+    "#map *" #>
       getMap &
-    "#googlemaps-init *" #> 
+    "#googlemaps-init *" #>
       googleMaps.getGoogleAPIScript &
-    "#trackmap" #> 
+    "#trackmap" #>
       toggleAttribute(_.trackPositionOnMap, _ withTrackedMap _) &
-    "#walking " #> 
+    "#walking " #>
       setAttribute[WalkingDistance](_.range, _.meters, s => WalkingDistance(s.toInt), _ withRange _) &
-    "#route" #> 
+    "#route" #>
       setAttribute[TransportRoute](_.preferredRoute, _.id, s => TransportRoute(s.toInt), _ withPreferredRoute _) &
-    "#stopcount" #> 
+    "#stopcount" #>
       setAttribute[Int](_.stopsToShow, _.toString, _.toInt, _ withStopsToShow _)
 
   private def userState = UserState.get
 
   private def updateUserState(updater: UserState => UserState) = UserState update updater
   
-  private def moveAroundInMap(): JsCmd = UserState.get.position match {
+  private def recenter() = SHtml.ajaxButton(
+    "Recenter", 
+    () => {
+      updateUserState(_ withSelectedStop None)
+      updateStopsCommands()
+    })
+  
+  private def moveAroundInMap(): JsCmd = userState.mapPosition() match {
     case Some(pos) => googleMaps.zoomToCmd(pos, "map_canvas")
     case None => Noop
   }
-  
-  private def toggleAttribute(value: (UserState => Boolean), 
-                              updater: (UserState, Boolean) => UserState, 
+
+  private def toggleAttribute(value: (UserState => Boolean),
+                              updater: (UserState, Boolean) => UserState,
                               updateAlways: Boolean = false) =
-  SHtml.ajaxCheckbox(value(userState),
-    value => {
-      updateUserState(updater(_, value))
-      if (value || updateAlways) updateStopsCommands() else Noop
-    })
-  
-  
-  private def setAttribute[T](value: UserState => Option[T], 
-                              presenter: T => Any, 
-                              converter: (String => T), 
+    SHtml.ajaxCheckbox(value(userState),
+      value => {
+        updateUserState(updater(_, value))
+        if (value || updateAlways) updateStopsCommands() else Noop
+      })
+
+
+  private def setAttribute[T](value: UserState => Option[T],
+                              presenter: T => Any,
+                              converter: (String => T),
                               updater: (UserState, Option[T]) => UserState) =
     SHtml.ajaxText(
       toString(value(userState), presenter),
@@ -119,11 +129,11 @@ class GeoComet extends CometActor {
         updateStopsCommands()
       })
 
-  def toString[T](value: Option[T], present: T => Any) = 
+  def toString[T](value: Option[T], present: T => Any) =
     value.map(present(_)).map(_.toString).getOrElse("")
 
   def toValue[T](convert: (String) => T, string: String): Option[T] = {
-    try { 
+    try {
       Option(string).map(_.trim).filterNot(_.isEmpty).map(convert(_))
     } catch {
       case e =>
@@ -132,7 +142,7 @@ class GeoComet extends CometActor {
     }
   }
 
-  private def setTypeLimiter(tt: TransportType) = 
+  private def setTypeLimiter(tt: TransportType) =
     limiterCheckBox(userState canRideWith tt, _.withTransport(tt, _))
 
   private def getLastPositionUpdate =
@@ -148,9 +158,9 @@ class GeoComet extends CometActor {
         updateStopsCommands()
       })
 
-  def readPosition(map: Map[String, _]): Option[Position] = 
-    try { 
-      Some(Position(getArg(map, "latitude").get, getArg(map, "longitude").get)) 
+  def readPosition(map: Map[String, _]): Option[Position] =
+    try {
+      Some(Position(getArg(map, "latitude").get, getArg(map, "longitude").get))
     } catch {
       case e =>
         e.printStackTrace()
@@ -185,12 +195,14 @@ class GeoComet extends CometActor {
   private def mapIFrame(url: String) =
       <iframe width="750" height="350" frameborder="0" scrolling="no" marginheight="0" marginwidth="0" src={url}/>
 
-  private def getLatitude = get(_.latitude)
+  private def getLatitude = getDouble(_.latitude)
 
-  private def getLongitude= get(_.longitude)
+  private def getLongitude= getDouble(_.longitude)
 
-  private def get[T](fun: Position => T) =
-    <span>{ userState.position.map(fun).getOrElse("0.0") }</span>
+  private val nf = new DecimalFormat("00.000000")
+  
+  private def getDouble(fun: Position => Double) =
+    <span>{ userState.position.map(fun).map(nf format _).getOrElse("0.0") }</span>
 
   private def getRealTimeData(stopId: Int) =
     <span>
@@ -254,17 +266,21 @@ class GeoComet extends CometActor {
                   Call("selectStop", JsRaw(stop.position.latitude.toString),
                     JsRaw(stop.position.longitude.toString),
                     JsRaw(stop.ID.toString)),
-                  () => jsonCall("selectStop", JsRaw(stop.ID.toString))) }
+                  () => {
+                    updateUserState(_ withSelectedStop Option(stop))
+                    jsonCall("selectStop", JsRaw(stop.ID.toString))
+                  })
+                  }
                   <ul>
                     {
                     stop.Lines.groupBy(_.Transportation).toList.map(_ match {
                       case (transportation, lines) =>
                         <li>
                           { mode(transportation) }:
-                          { lines.map(line => {  
-                            <span>&nbsp;</span>
+                          { lines.map(line => {
+                          <span>&nbsp;</span>
                             <span>{ line.LineName }</span>
-                          })
+                        })
                           }
                         </li>
                     })
