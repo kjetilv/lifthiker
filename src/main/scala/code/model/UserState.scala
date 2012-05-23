@@ -17,30 +17,44 @@
 package code.model
 
 import org.joda.time.{DateTime, ReadableDateTime}
+import net.liftweb.http.SessionVar
+
+object UserState {
+  
+  private object userStateSessionVar extends SessionVar[UserState](UserState())
+  
+  def update(updater: UserState => UserState) = userStateSessionVar(updater(userStateSessionVar.get))
+  
+  def get = userStateSessionVar.get
+}
 
 case class UserState(position: Option[Position] = None,
                      lastPositionUpdate: Option[ReadableDateTime] = None,
                      trackPositionOnMap: Boolean = true,
-                     range: Option[WalkingDistance] = Some(WalkingDistance(500)), 
+                     range: Option[WalkingDistance] = Some(WalkingDistance(500)),
+                     selectedStop: Option[Stop] = None,
                      stopsToShow: Option[Int] = Some(10),
                      preferredRoute: Option[TransportRoute] = None,
-                     preferredTransports: Transports = Transports()) {
+                     preferredTransports: Transports = Transports(Trikk, Bane, Buss)) {
   
-  def at(pos: Position) = Option(pos) match {
-    case None => this
-    case opt => this.copy(position = opt, lastPositionUpdate = Some(new DateTime()))
-  }
+  private val typeIds = preferredTransports.types.map(_.typeId) 
   
-  def prefers(tt: TransportType) = preferredTransports includes tt
+  def isSingleRoute = preferredRoute.isDefined 
   
-  def withTransport(tt: TransportType, on: Boolean) = 
-    this.copy(preferredTransports = if (on) preferredTransports add tt else preferredTransports remove tt)
+  def at(pos: Option[Position]) = this.copy(position = pos, lastPositionUpdate = Some(new DateTime()))
   
-  def withPreferredRoute(preferredRoute: TransportRoute) = this.copy(preferredRoute = Option(preferredRoute))
+  def canRideWith(typeId: Int) = typeIds contains typeId
   
-  def withRange(distance: WalkingDistance) = this.copy(range = Option(distance))
+  def canRideWith(tt: TransportType) = preferredTransports includes tt
+  
+  def withTransport(tt: TransportType, ok: Boolean) = 
+    this.copy(preferredTransports = if (ok) preferredTransports add tt else preferredTransports remove tt)
+  
+  def withPreferredRoute(preferredRoute: Option[TransportRoute]) = this.copy(preferredRoute = preferredRoute)
+  
+  def withRange(distance: Option[WalkingDistance]) = this.copy(range = distance)
   
   def withTrackedMap(on: Boolean) = this.copy(trackPositionOnMap = on)
   
-  def withStopsToShow(count: Int) = this.copy(stopsToShow = if (count > 0) Some(count) else None)
+  def withStopsToShow(count: Option[Int]) = this.copy(stopsToShow = count.filter(_ > 0))
 }

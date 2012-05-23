@@ -25,7 +25,7 @@ case class Transports(types: Set[TransportType]) {
   
   def includes(transportType: TransportType) = types contains transportType
 
-  def add(transportType: TransportType) = Transports(types - transportType)
+  def add(transportType: TransportType) = Transports(types + transportType)
   
-  def remove(transportType: TransportType) = Transports(types + transportType)
+  def remove(transportType: TransportType) = Transports(types - transportType)
 }

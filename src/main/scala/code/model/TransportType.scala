@@ -16,9 +16,9 @@
 
 package code.model
 
-sealed abstract class TransportType
+sealed abstract class TransportType(val typeId: Int)
 
-case object Trikk extends TransportType
-case object Buss extends TransportType
-case object Bane extends TransportType
-case object Baat extends TransportType
+case object Trikk extends TransportType(7)
+case object Buss extends TransportType(2)
+case object Bane extends TransportType(8)
+case object Baat extends TransportType(5)

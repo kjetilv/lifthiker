@@ -33,10 +33,6 @@ class TrafikantenClient(address: InetSocketAddress) {
 
   import org.jboss.netty.channel.Channels._
 
-  private var stops: Option[Stops] = None
-
-  private var trips: Map[Int, Trip] = Map[Int, Trip]()
-
   def getRealTime(id: Int, userState: UserState): List[RealTime] = {
     val list = read[RealTime](getRealTimePath(id)) filter (_.LineRef.toInt < 100)
     userState.preferredRoute match {
@@ -45,22 +41,12 @@ class TrafikantenClient(address: InetSocketAddress) {
     }
   }
 
-  def getTrip(id: Int): Trip =
-    trips get id match {
-      case Some(existingTrip) => existingTrip
-      case None =>
-        val trip = retrieveTrip(id)
-        trips = trips + (id → trip)
-        trip
-    }
+  def getTrip(id: Int): Trip = retrieveTrip(id)
 
-  // TODO Extract parameter object, model all state in single case class
   def getStops(userState: UserState): List[Stop] = {
-        if (stops.isEmpty || longerDistance(userState) || farFrom(userState)) {
-          val stopList = retrieveStops(userState)
-          stops = Some(Stops(userState.position.get, stopList, userState.range))
-        }
-        stops.get.forRoute(userState.preferredRoute).scaledTo(userState).stops
+    val stopList = retrieveStops(userState)
+    val stops = Stops(userState.position.get, stopList, userState.range)
+    stops.forRoute(userState).scaledTo(userState).stops
   }
 
   private def retrieveTrip(id: Int): Trip = read[Trip](getTripPath(id)) match {
@@ -68,12 +54,12 @@ class TrafikantenClient(address: InetSocketAddress) {
     case x => throw new APIException("Failed to parse trip: " + id)
   }
 
-  private def farFrom(userState: UserState) = 
-    if (stops.isDefined) (userState.position.map(stops.get farFrom _)).getOrElse(true) else true
-
-  private def longerDistance(userState: UserState) =
-    userState.range.map(stops.get.walkingDistance.get.times(10).lessThan(_)).getOrElse(false)
-
+//  private def farFrom(userState: UserState) = 
+//    if (stops.isDefined) (userState.position.map(stops.get farFrom _)).getOrElse(true) else true
+//
+//  private def longerDistance(userState: UserState) =
+//    userState.range.map(stops.get.walkingDistance.get.times(10).lessThan(_)).getOrElse(false)
+//
   private def retrieveStops(userState: UserState): List[Stop] = {
     val path = getStopsPath(userState)
     val stopList = read[Stop](path)

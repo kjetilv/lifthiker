@@ -20,18 +20,31 @@ case class Stops(position: Position,
                  stops: List[Stop], 
                  walkingDistance: Option[WalkingDistance] = None) {
 
-  def forRoute(routeBox: Option[TransportRoute]): Stops = {
-    routeBox match {
-      case Some(route) => Stops(position, stops map withLinesFor(route) filter (hasLines), walkingDistance)
-      case None => this
-    }
-  }
+  def forRoute(userState: UserState): Stops = 
+    if (userState.isSingleRoute) {
+      Stops(position, stops.map(withLinesFor(userState.preferredRoute.get)).filter(hasLines), walkingDistance)
+    } else {
+      Stops(position, stops.map(withLinesFor(userState)).filter(hasLines), walkingDistance)
+    } 
+//    routeBox match {
+//      case Some(route) => Stops(position, stops map withLinesFor(route) filter (hasLines), walkingDistance)
+//      case None => this
+//    }
 
-  private def withLinesFor(route: TransportRoute) = (stop: Stop) => stop.copy(Lines = stop.Lines filter lineFor(route))
+  private def withLinesFor(route: TransportRoute) = 
+    (stop: Stop) => stop.copy(Lines = stop.Lines filter lineFor(route))
+  
+  private def withLinesFor(userState: UserState) = 
+    (stop: Stop) => stop.copy(Lines = stop.Lines filter lineFor(userState))
 
-  private def lineFor(route: TransportRoute) = (line: Line) => line.LineID == route.id
+  private def lineFor(route: TransportRoute) = 
+    (line: Line) => line.LineID == route.id
+  
+  private def lineFor(userState: UserState) = 
+    (line: Line) => userState.canRideWith(line.Transportation)
 
-  private def hasLines = (stop: Stop) => !stop.Lines.isEmpty
+  private def hasLines = 
+    (stop: Stop) => !stop.Lines.isEmpty
 
   val hits = stops.size
 

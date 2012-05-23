@@ -20,14 +20,12 @@ import net.liftweb.http.js.JsCmd
 import net.liftweb.util.JsonCmd
 import net.liftweb.http.js.JsCmds._
 import java.net.InetSocketAddress
-import net.liftweb.http.{SessionVar, SHtml, CometActor}
+import net.liftweb.http.{SHtml, CometActor}
 import net.liftweb.http.js.JE._
 import org.joda.time._
 import code.model._
 
 class GeoComet extends CometActor {
-
-  private object userState extends SessionVar[UserState](UserState())
 
   private val address = new InetSocketAddress(System getProperty "trafikantenapi", 80)
 
@@ -36,82 +34,128 @@ class GeoComet extends CometActor {
   private val trafikanten = new TrafikantenClient(address)
 
   private def commands(cmds: JsCmd*) = listCommands(cmds.toList)
-  
+
   private def listCommands(cmds: List[JsCmd]): JsCmd = cmds match {
     case Nil => Noop
     case cmd :: Nil => cmd
     case cmd :: tail => CmdPair(cmd, listCommands(tail))
   }
-  
+
   override def handleJson(in: Any): JsCmd = in match {
     case JsonCmd("selectStop", _, id: Double, _) =>
       SetHtml("realtime-canvas", getRealTimeData(id.toInt))
     case JsonCmd("positionUpdateFailed", _, map: Map[String, Map[String, _]], _) =>
       println("Oops: " + map)
     case JsonCmd("updatePosition", _, map: Map[String, Map[String, _]], _) =>
-      val newPosition = readPosition(map("coords"))
-      userState(userState at newPosition)
+      UserState.update(_ at readPosition(map("coords")))
       commands(
         SetHtml("longitude", getLongitude),
         SetHtml("latitude", getLatitude),
         SetHtml("lastPositionUpdate", getLastPositionUpdate),
-        updateMap()
+        updateStopsCommands()
       )
     case _ => println("Unsupported JSON call: " + in)
   }
 
-  def updateMap() = commands(SetHtml("stops", computeStops()), mapUpdate()) 
+  def updateStopsCommands() = commands(SetHtml("stops", computeStops()), moveAroundInMap())
 
-  def mapUpdate(): JsCmd = userState.position match {
+  def render = "#geoscript *" #> getGeoScript &
+    "#longitude *" #> 
+      getLongitude &
+    "#latitude *" #> 
+      getLatitude &
+    "#lastPositionUpdate *" #> 
+      getLastPositionUpdate &
+    "#trikk" #> 
+      setTypeLimiter(Trikk) &
+    "#bane" #> 
+      setTypeLimiter(Bane) &
+    "#buss" #> 
+      setTypeLimiter(Buss) &
+    "#baat" #> 
+      setTypeLimiter(Baat) &
+    "#stops *" #> 
+      waiting &
+    "#map *" #> 
+      getMap &
+    "#googlemaps-init *" #> 
+      googleMaps.getGoogleAPIScript &
+    "#trackmap" #> 
+      toggleAttribute(_.trackPositionOnMap, _ withTrackedMap _) &
+    "#walking " #> 
+      setAttribute[WalkingDistance](_.range, _.meters, s => WalkingDistance(s.toInt), _ withRange _) &
+    "#route" #> 
+      setAttribute[TransportRoute](_.preferredRoute, _.id, s => TransportRoute(s.toInt), _ withPreferredRoute _) &
+    "#stopcount" #> 
+      setAttribute[Int](_.stopsToShow, _.toString, _.toInt, _ withStopsToShow _)
+
+  private def userState = UserState.get
+
+  private def updateUserState(updater: UserState => UserState) = UserState update updater
+  
+  private def moveAroundInMap(): JsCmd = UserState.get.position match {
     case Some(pos) => googleMaps.zoomToCmd(pos, "map_canvas")
     case None => Noop
   }
-
-  def render = "#geoscript *" #> getGeoScript &
-    "#longitude *" #> getLongitude &
-    "#latitude *" #> getLatitude &
-    "#lastPositionUpdate *" #> getLastPositionUpdate &
-    "#trackmap" #> setTrackMap() &
-    "#trikk" #> setLimiter(userState.prefers(Trikk), (on: Boolean) => userState.withTransport(Trikk, on)) &
-    "#bane" #> setLimiter(userState.prefers(Bane), (on: Boolean) => userState.withTransport(Bane, on)) &
-    "#buss" #> setLimiter(userState.prefers(Buss), (on: Boolean) => userState.withTransport(Buss, on)) &
-    "#baat" #> setLimiter(userState.prefers(Baat), (on: Boolean) => userState.withTransport(Baat, on)) &
-    "#stops *" #> waiting &
-    "#map *" #> getMap &
-    "#googlemaps-init *" #> googleMaps.getGoogleAPIScript &
-    "#walking" #> ajaxText(userState.range.map(_.meters), (v:String) => userState.withRange(WalkingDistance(v.toInt))) &
-    "#route" #> ajaxText(userState.preferredRoute.map(_.id), (v: String) => userState.withPreferredRoute(TransportRoute(v.toInt))) &
-    "#stopcount" #> ajaxText(userState.stopsToShow, (v: String) => userState.withStopsToShow(v.toInt))
   
-  private def getLastPositionUpdate =
-    <span> { userState.lastPositionUpdate.map(_ toString "HH:mm:ss").getOrElse("N/A") } </span>
-  
-  private val waiting = <span>Waiting ...</span>
-
-  private def setLimiter(state: Boolean, newUserState: (Boolean) => UserState) = SHtml.ajaxCheckbox(state, 
+  private def toggleAttribute(value: (UserState => Boolean), 
+                              updater: (UserState, Boolean) => UserState, 
+                              updateAlways: Boolean = false) =
+  SHtml.ajaxCheckbox(value(userState),
     value => {
-      userState(newUserState(value))
-      updateMap()
+      updateUserState(updater(_, value))
+      if (value || updateAlways) updateStopsCommands() else Noop
     })
   
-  private def ajaxText[T](state: Option[T], newUserState: String => UserState) = SHtml.ajaxText(state match {
-    case Some(no) => no.toString
-    case None => ""
-  }, string => {
-    userState(newUserState(string))
-    updateMap()
-  })
   
-  private def setTrackMap() = SHtml.ajaxCheckbox(userState.trackPositionOnMap,
-    value => { 
-      userState(userState.withTrackedMap(value)) 
-      if (value) updateMap() else Noop
-    })
+  private def setAttribute[T](value: UserState => Option[T], 
+                              presenter: T => Any, 
+                              converter: (String => T), 
+                              updater: (UserState, Option[T]) => UserState) =
+    SHtml.ajaxText(
+      toString(value(userState), presenter),
+      (string) => {
+        updateUserState(updater(_, toValue(converter, string)))
+        updateStopsCommands()
+      })
 
-  def updatePosition(newPosition: Position) {
+  def toString[T](value: Option[T], present: T => Any) = 
+    value.map(present(_)).map(_.toString).getOrElse("")
+
+  def toValue[T](convert: (String) => T, string: String): Option[T] = {
+    try { 
+      Option(string).map(_.trim).filterNot(_.isEmpty).map(convert(_))
+    } catch {
+      case e =>
+        e.printStackTrace(System.out)
+        None
+    }
   }
 
-  def readPosition(map: Map[String, _]): Position = Position(getArg(map, "latitude").get, getArg(map, "longitude").get)
+  private def setTypeLimiter(tt: TransportType) = 
+    limiterCheckBox(userState canRideWith tt, _.withTransport(tt, _))
+
+  private def getLastPositionUpdate =
+    <span> { userState.lastPositionUpdate.map(_ toString "HH:mm:ss").getOrElse("N/A") } </span>
+
+  private val waiting = <span>Waiting ...</span>
+
+  private def limiterCheckBox(state: Boolean, newUserState: (UserState, Boolean) => UserState) =
+    SHtml.ajaxCheckbox(
+      state,
+      value => {
+        UserState.update(newUserState(_, value))
+        updateStopsCommands()
+      })
+
+  def readPosition(map: Map[String, _]): Option[Position] = 
+    try { 
+      Some(Position(getArg(map, "latitude").get, getArg(map, "longitude").get)) 
+    } catch {
+      case e =>
+        e.printStackTrace()
+        None
+    }
 
   private def getArg(map: Map[String, _], key: String) =
     map.get(key) match {
@@ -145,8 +189,8 @@ class GeoComet extends CometActor {
 
   private def getLongitude= get(_.longitude)
 
-  private def get[T](fun: Position => T) = 
-    <span>{ userState.position.map(fun).getOrElse("Waiting...") }</span>
+  private def get[T](fun: Position => T) =
+    <span>{ userState.position.map(fun).getOrElse("0.0") }</span>
 
   private def getRealTimeData(stopId: Int) =
     <span>
@@ -212,11 +256,18 @@ class GeoComet extends CometActor {
                     JsRaw(stop.ID.toString)),
                   () => jsonCall("selectStop", JsRaw(stop.ID.toString))) }
                   <ul>
-                    { stop.Lines.map(line => { <li>{
-                    <span>{ line.mode}</span>
-                      <span>&nbsp;</span>
-                      <span>{ line.LineName }</span>
-                    }</li>})
+                    {
+                    stop.Lines.groupBy(_.Transportation).toList.map(_ match {
+                      case (transportation, lines) =>
+                        <li>
+                          { mode(transportation) }:
+                          { lines.map(line => {  
+                            <span>&nbsp;</span>
+                            <span>{ line.LineName }</span>
+                          })
+                          }
+                        </li>
+                    })
                     }
                   </ul>
                 </li>) }
@@ -225,4 +276,12 @@ class GeoComet extends CometActor {
         }
       case None => waiting
     }
+
+  def mode(transportation: Int) = transportation match {
+    case 8 => "Bane"
+    case 7 => "Trikk"
+    case 5 => "Båt"
+    case 2 => "Buss"
+    case x => x.toString
+  }
 }
